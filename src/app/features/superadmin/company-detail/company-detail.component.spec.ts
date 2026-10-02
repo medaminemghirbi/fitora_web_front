@@ -26,11 +26,16 @@ describe("SuperadminCompanyDetailComponent", () => {
     locale: "fr",
     active: true,
     created_at: "2026-01-01T00:00:00Z",
-    admin: { id: "u1", full_name: "Amine", email: "a@x.test", phone: null, company_limit: 1, companies_count: 1 },
+    admin: { id: "u1", full_name: "Amine", email: "a@x.test", phone: null, companies_count: 1 },
+    plan: "starter",
+    account_companies: [{ id: "c1", name: "Salle Sousse", city: "Sousse", current: true }],
     subscription: {
       id: "s1",
       active: true,
       billing_period: "monthly",
+      plan: "starter",
+      member_app: false,
+      multi_salle: false,
       lock_reason: null,
       paid_through: "2099-12-31",
       current_period_paid: true,
@@ -70,7 +75,6 @@ describe("SuperadminCompanyDetailComponent", () => {
       "voidInvoice",
       "updateSubscription",
       "updateSettings",
-      "updateCompanyLimit",
       "impersonate",
     ]);
     service.get.and.returnValue(
@@ -85,7 +89,7 @@ describe("SuperadminCompanyDetailComponent", () => {
         provideHttpClientTesting(),
         provideRouter([]),
         { provide: SuperadminCompaniesService, useValue: service },
-        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: "c1" }) } } },
+        { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: "c1" })) } },
       ],
     });
 
@@ -97,70 +101,58 @@ describe("SuperadminCompanyDetailComponent", () => {
 
   beforeEach(() => build());
 
-  // The tier governs the admin, so it is read off them, and a plan
-  // narrower than the gyms they already run is refused before it is sent.
+  // The plan is the account's: read off it, changed through the
+  // subscription endpoint, and shown with every salle it covers.
   describe("the plan", () => {
-    function withAdmin(limit: number | null, gyms: number): void {
-      build({ admin: { ...company.admin, company_limit: limit, companies_count: gyms } });
-    }
+    const pro = { ...company, plan: "pro", subscription: { ...company.subscription!, plan: "pro", member_app: true } } as SuperadminCompany;
 
-    it("reads the admin's tier, with unlimited as the blank option", () => {
-      withAdmin(3, 2);
-      expect(component.plan()).toBe("3");
-      expect(component.adminGyms()).toBe(2);
+    it("reads the account's plan and whether it opens the member app", () => {
+      expect(component.plan()).toBe("starter");
+      expect(component.memberApp()).toBeFalse();
 
-      withAdmin(null, 5);
-      expect(component.plan()).toBe("");
+      build(pro);
+      expect(component.plan()).toBe("pro");
+      expect(component.memberApp()).toBeTrue();
     });
 
-    it("moves the admin to the chosen tier", () => {
-      withAdmin(1, 1);
-      service.updateCompanyLimit.and.returnValue(
-        of({ company: { ...company, admin: { ...company.admin, company_limit: 3, companies_count: 1 } } as SuperadminCompany })
-      );
+    it("moves the account to the chosen plan", () => {
+      service.updateSubscription.and.returnValue(of({ company: pro }));
 
-      component.changePlan("3");
+      component.changePlan("pro");
 
-      expect(service.updateCompanyLimit).toHaveBeenCalledWith("c1", 3);
-      expect(component.plan()).toBe("3");
+      expect(service.updateSubscription).toHaveBeenCalledWith("c1", { plan: "pro" });
+      expect(component.plan()).toBe("pro");
       expect(component.savingPlan()).toBeFalse();
     });
 
-    it("sends null for unlimited", () => {
-      withAdmin(3, 2);
-      service.updateCompanyLimit.and.returnValue(
-        of({ company: { ...company, admin: { ...company.admin, company_limit: null, companies_count: 2 } } as SuperadminCompany })
-      );
+    it("does nothing when the plan picked is the one already in force", () => {
+      component.changePlan("starter");
 
-      component.changePlan("");
-
-      expect(service.updateCompanyLimit).toHaveBeenCalledWith("c1", null);
-    });
-
-    it("refuses a plan narrower than the gyms the admin already runs", () => {
-      withAdmin(null, 4);
-
-      component.changePlan("3");
-
-      expect(service.updateCompanyLimit).not.toHaveBeenCalled();
-    });
-
-    it("does nothing when the tier picked is the one already in force", () => {
-      withAdmin(3, 1);
-
-      component.changePlan("3");
-
-      expect(service.updateCompanyLimit).not.toHaveBeenCalled();
+      expect(service.updateSubscription).not.toHaveBeenCalled();
     });
 
     it("stops saving and reports when the change fails", () => {
-      withAdmin(1, 1);
-      service.updateCompanyLimit.and.returnValue(throwError(() => new Error("nope")));
+      service.updateSubscription.and.returnValue(throwError(() => new Error("nope")));
 
-      component.changePlan("3");
+      component.changePlan("pro");
 
       expect(component.savingPlan()).toBeFalse();
-      expect(component.plan()).toBe("1");
+      expect(component.plan()).toBe("starter");
+    });
+
+    it("lists every salle of the account, linking to the others", () => {
+      build({
+        admin: { ...company.admin, companies_count: 2 },
+        account_companies: [
+          { id: "c1", name: "Salle Sousse", city: "Sousse", current: true },
+          { id: "c2", name: "Salle Tunis", city: null, current: false },
+        ],
+      });
+
+      const items = fixture.nativeElement.querySelectorAll(".ac-account-item");
+      expect(items.length).toBe(2);
+      expect(items[0].classList).toContain("is-current");
+      expect(items[1].getAttribute("href")).toBe("/superadmin/companies/c2");
     });
   });
 

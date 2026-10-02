@@ -69,3 +69,27 @@
   font-weight: 600;
   white-space: nowrap;
 }
+
+// The account's plan — Pro stands out, since it is what sells the app.
+.company-plan {
+  display: inline-block;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--color-surface-sunken);
+  color: var(--color-text-secondary);
+
+  &[data-plan="pro"] {
+    background: var(--color-primary-soft);
+    color: var(--color-primary);
+  }
+}
+
+.company-total-note {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}

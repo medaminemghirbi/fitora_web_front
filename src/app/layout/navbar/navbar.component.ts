@@ -71,8 +71,6 @@ export class NavbarComponent {
   readonly companySwitcherOpen = signal(false);
   readonly switching = signal(false);
 
-  // Only an admin running more than one company sees this at all — a
-  // single-company admin's navbar looks exactly as it always has.
   /**
    * Scroll arrives far faster than a frame; the reaction is coalesced into
    * one rAF so a fling does not queue hundreds of signal writes.
@@ -101,10 +99,18 @@ export class NavbarComponent {
     return this.openGroup() !== null || this.userMenuOpen() || this.companySwitcherOpen() || this.mobileOpen();
   }
 
+  /**
+   * The salles this login can move between. An admin always sees the
+   * switcher — it is also their way to "Mes salles", where another salle is
+   * opened. A moderator sees it once they are posted to more than one.
+   */
   readonly switchableCompanies = computed(() => {
-    const companies = this.auth.currentUser()?.companies;
-    return companies && companies.length > 1 ? companies : null;
+    const user = this.auth.currentUser();
+    const companies = user?.companies;
+    if (!companies?.length) return null;
+    return user?.role === "admin" || companies.length > 1 ? companies : null;
   });
+  readonly isAdmin = computed(() => this.auth.currentUser()?.role === "admin");
   readonly activeCompany = computed(() => this.switchableCompanies()?.find((c) => c.active) ?? null);
 
   private readonly activeUrl = signal(this.router.url);
@@ -172,7 +178,7 @@ export class NavbarComponent {
 
     this.switching.set(true);
     this.companyService.switchTo(companyId).subscribe({
-      next: () => this.reloadToDashboard(),
+      next: () => this.reloadToHome(),
       error: () => {
         this.switching.set(false);
         this.companySwitcherOpen.set(false);
@@ -186,8 +192,10 @@ export class NavbarComponent {
 
   // Its own method purely so tests have a seam to spy on — real browsers
   // (and Karma's) don't reliably allow stubbing window.location itself.
-  protected reloadToDashboard(): void {
-    window.location.assign("/admin/dashboard");
+  // A staff login's home depends on its role in the salle it lands in, so
+  // the root route works it out once the new salle's bootstrap is in.
+  protected reloadToHome(): void {
+    window.location.assign(this.isAdmin() ? "/admin/dashboard" : "/");
   }
 
   private closeAll(): void {

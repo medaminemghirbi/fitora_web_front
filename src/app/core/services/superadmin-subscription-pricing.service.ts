@@ -2,29 +2,26 @@ import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
 import { API_BASE_URL } from "../models/api-config";
+import { PlanKey } from "../models/subscription.model";
 
-// 0 is the UNLIMITED sentinel (see SubscriptionPrice::UNLIMITED on the
-// backend) — Postgres can't enforce uniqueness on NULL the way it can on 0.
-export const UNLIMITED_TIER = 0;
-
-export interface SubscriptionTier {
-  company_limit: number;
-  unlimited: boolean;
+export interface PlanPrice {
+  plan: PlanKey;
   monthly_cents: number;
   annual_cents: number;
+  /** How many accounts pay this price today. */
+  accounts_count: number;
 }
 
 export interface SubscriptionPricing {
   currencies: string[];
   currency: string;
   annual_discount_percent: number;
-  tiers: SubscriptionTier[];
+  plans: PlanPrice[];
   companies_count: number;
 }
 
-// The platform's monthly subscription price per currency AND company-limit
-// tier (1 / 3 / unlimited companies an admin may run) + the global
-// annual-billing discount. Superadmin-only.
+// What each plan (Starter, Pro) costs per month in each currency, plus the
+// global annual-billing discount. Superadmin-only.
 @Injectable({ providedIn: "root" })
 export class SuperadminSubscriptionPricingService {
   constructor(private readonly http: HttpClient) {}
@@ -35,9 +32,8 @@ export class SuperadminSubscriptionPricingService {
     return this.http.get<SubscriptionPricing>(`${API_BASE_URL}/superadmin/subscription_pricing`, { params });
   }
 
-  // `tiers` keys are company_limit values stringified ("1", "3", "0" for
-  // unlimited) — any subset may be sent, omitted tiers are left as-is.
-  update(payload: { currency?: string; tiers?: Record<string, number>; annual_discount_percent?: number }): Observable<SubscriptionPricing> {
+  // Either plan may be sent alone — an omitted one is left as-is.
+  update(payload: { currency?: string; plans?: Partial<Record<PlanKey, number>>; annual_discount_percent?: number }): Observable<SubscriptionPricing> {
     return this.http.patch<SubscriptionPricing>(`${API_BASE_URL}/superadmin/subscription_pricing`, payload);
   }
 }

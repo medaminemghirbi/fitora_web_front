@@ -1,4 +1,4 @@
-import { Subscription } from "./subscription.model";
+import { PlanKey, Subscription } from "./subscription.model";
 
 export interface SuperadminCurrencyOption {
   code: string;
@@ -30,14 +30,16 @@ export interface SuperadminCompany {
     full_name: string;
     email: string;
     phone: string | null;
-    /**
-     * The plan, as a number of gyms. It governs the ADMIN, not this one
-     * company: every gym they run shares it, and its price. null = unlimited.
-     */
-    company_limit: number | null;
     companies_count: number;
   };
+  /**
+   * The ACCOUNT's plan, not this one salle's: every salle the admin runs
+   * shares it, its access and its invoices. null = no subscription yet.
+   */
+  plan: PlanKey | null;
   subscription: Subscription | null;
+  /** Every salle the account covers, this one flagged `current`. */
+  account_companies: { id: string; name: string; city: string | null; current: boolean }[];
   /** Owed: periods with no invoice behind them, times the tariff. */
   arrears_cents: number;
   /**

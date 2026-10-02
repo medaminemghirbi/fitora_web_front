@@ -1,30 +1,31 @@
 import { Component, OnInit, inject, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { TranslateModule, TranslateService } from "@ngx-translate/core";
-import {
-  SuperadminSubscriptionPricingService,
-  SubscriptionPricing,
-  UNLIMITED_TIER,
-} from "../../../core/services/superadmin-subscription-pricing.service";
+import { SuperadminSubscriptionPricingService, SubscriptionPricing } from "../../../core/services/superadmin-subscription-pricing.service";
+import { PlanKey } from "../../../core/models/subscription.model";
 import { ToastService } from "../../../core/services/toast.service";
 import { extractErrorMessage } from "../../../core/services/error.util";
 import { SpinnerComponent } from "../../../shared/components/spinner.component";
 import { ErrorStateComponent } from "../../../shared/ui/error-state.component";
 import { MoneyPipe } from "../../../shared/pipes/money.pipe";
 
-interface TierRow {
-  companyLimit: number;
-  unlimited: boolean;
-  labelKey: string;
+interface PlanRow {
+  plan: PlanKey;
   monthlyUnits: number;
-  annualCents: number;
+  accountsCount: number;
 }
 
+/**
+ * What Gymly's two plans cost, per currency, and the annual discount.
+ * Starter is the whole product; Pro adds the member app and every update.
+ * Each is priced per admin account, however many salles it covers.
+ */
 @Component({
   selector: "app-superadmin-pricing",
   standalone: true,
   imports: [FormsModule, TranslateModule, SpinnerComponent, ErrorStateComponent, MoneyPipe],
   templateUrl: "./pricing.component.html",
+  styleUrl: "./pricing.component.scss",
 })
 export class SuperadminPricingComponent implements OnInit {
   private readonly service = inject(SuperadminSubscriptionPricingService);
@@ -38,7 +39,7 @@ export class SuperadminPricingComponent implements OnInit {
 
   readonly currency = signal("TND");
   readonly discount = signal(0);
-  readonly tiers = signal<TierRow[]>([]);
+  readonly plans = signal<PlanRow[]>([]);
 
   ngOnInit(): void {
     this.load();
@@ -64,9 +65,9 @@ export class SuperadminPricingComponent implements OnInit {
     this.load();
   }
 
-  tierLabelKey(companyLimit: number, unlimited: boolean): string {
-    if (unlimited) return "superadmin.pricing_tier_unlimited";
-    return companyLimit === 1 ? "superadmin.pricing_tier_one" : "superadmin.pricing_tier_many";
+  /** The year as the admin will see it, before anything is saved. */
+  annualUnits(row: PlanRow): number {
+    return Math.round(row.monthlyUnits * 12 * (100 - this.discount())) / 100;
   }
 
   get dirty(): boolean {
@@ -74,8 +75,8 @@ export class SuperadminPricingComponent implements OnInit {
     if (!p) return false;
     if (this.discount() !== p.annual_discount_percent) return true;
 
-    return this.tiers().some((row) => {
-      const original = p.tiers.find((t) => t.company_limit === row.companyLimit);
+    return this.plans().some((row) => {
+      const original = p.plans.find((t) => t.plan === row.plan);
       return !original || Math.round(row.monthlyUnits * 100) !== original.monthly_cents;
     });
   }
@@ -83,38 +84,30 @@ export class SuperadminPricingComponent implements OnInit {
   save(): void {
     this.saving.set(true);
 
-    const tierPayload: Record<string, number> = {};
-    this.tiers().forEach((row) => {
-      tierPayload[String(row.companyLimit)] = Math.max(0, Math.round(row.monthlyUnits * 100));
+    const plans: Partial<Record<PlanKey, number>> = {};
+    this.plans().forEach((row) => {
+      plans[row.plan] = Math.max(0, Math.round(row.monthlyUnits * 100));
     });
 
-    this.service
-      .update({ currency: this.currency(), tiers: tierPayload, annual_discount_percent: this.discount() })
-      .subscribe({
-        next: (res) => {
-          this.saving.set(false);
-          this.apply(res);
-          this.toast.success(this.translate.instant("common.save"));
-        },
-        error: (err) => {
-          this.saving.set(false);
-          this.toast.error(extractErrorMessage(err, this.translate.instant("common.error_generic")));
-        },
-      });
+    this.service.update({ currency: this.currency(), plans, annual_discount_percent: this.discount() }).subscribe({
+      next: (res) => {
+        this.saving.set(false);
+        this.apply(res);
+        this.toast.success(this.translate.instant("common.save"));
+      },
+      error: (err) => {
+        this.saving.set(false);
+        this.toast.error(extractErrorMessage(err, this.translate.instant("common.error_generic")));
+      },
+    });
   }
 
   private apply(res: SubscriptionPricing): void {
     this.pricing.set(res);
     this.currency.set(res.currency);
     this.discount.set(res.annual_discount_percent);
-    this.tiers.set(
-      res.tiers.map((t) => ({
-        companyLimit: t.company_limit,
-        unlimited: t.unlimited || t.company_limit === UNLIMITED_TIER,
-        labelKey: this.tierLabelKey(t.company_limit, t.unlimited),
-        monthlyUnits: t.monthly_cents / 100,
-        annualCents: t.annual_cents,
-      }))
+    this.plans.set(
+      res.plans.map((p) => ({ plan: p.plan, monthlyUnits: p.monthly_cents / 100, accountsCount: p.accounts_count }))
     );
   }
 }

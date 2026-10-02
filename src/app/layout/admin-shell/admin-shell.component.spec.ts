@@ -153,6 +153,9 @@ describe("AdminShellComponent", () => {
         lock_reason: null,
         trial: false,
         trial_days_left: null,
+        plan: "starter",
+        member_app: false,
+        multi_salle: false,
         ...patch,
       });
       fixture = TestBed.createComponent(AdminShellComponent);

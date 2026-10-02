@@ -32,10 +32,10 @@ describe("SuperadminSubscriptionPricingService", () => {
   });
 
   it("update PATCHes the payload", () => {
-    service.update({ tiers: { "1": 1000 } }).subscribe();
+    service.update({ plans: { pro: 1000 } }).subscribe();
     const req = httpMock.expectOne(`${API_BASE_URL}/superadmin/subscription_pricing`);
     expect(req.request.method).toBe("PATCH");
-    expect(req.request.body).toEqual({ tiers: { "1": 1000 } });
+    expect(req.request.body).toEqual({ plans: { pro: 1000 } });
     req.flush({});
   });
 });

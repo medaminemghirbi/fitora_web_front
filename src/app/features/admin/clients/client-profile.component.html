@@ -94,10 +94,16 @@
         </button>
       }
       @if (!c.login_enabled) {
-        <button type="button" class="fx-menu-item" [disabled]="!c.email || inviting()" (click)="inviteToApp()">
-          <i class="bi bi-phone"></i>
-          {{ (c.invitation_pending ? "clients.resend_invite" : "clients.invite_to_app") | translate }}
-        </button>
+        @if (memberApp()) {
+          <button type="button" class="fx-menu-item" [disabled]="!c.email || inviting()" (click)="inviteToApp()">
+            <i class="bi bi-phone"></i>
+            {{ (c.invitation_pending ? "clients.resend_invite" : "clients.invite_to_app") | translate }}
+          </button>
+        } @else {
+          <button type="button" class="fx-menu-item" disabled [title]="'clients.invite_needs_pro_hint' | translate">
+            <i class="bi bi-phone"></i> {{ "clients.invite_needs_pro" | translate }}
+          </button>
+        }
       }
       <button type="button" class="fx-menu-item is-danger" [disabled]="removing()" (click)="removeMember()">
         <i class="bi bi-person-x"></i> {{ "clients.remove" | translate }}

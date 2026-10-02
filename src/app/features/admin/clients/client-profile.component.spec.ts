@@ -1,3 +1,4 @@
+import { signal } from "@angular/core";
 import { ComponentFixture, TestBed } from "@angular/core/testing";
 import { ActivatedRoute, Router, convertToParamMap } from "@angular/router";
 import { TranslateModule } from "@ngx-translate/core";
@@ -19,6 +20,7 @@ import { ContractsService } from "../../../core/services/contracts.service";
 import { PaymentsService } from "../../../core/services/payments.service";
 import { SessionsService } from "../../../core/services/sessions.service";
 import { ToastService } from "../../../core/services/toast.service";
+import { ConfigurationService } from "../../../core/configuration/configuration.service";
 import { ClientProfileComponent } from "./client-profile.component";
 
 describe("ClientProfileComponent", () => {
@@ -78,7 +80,11 @@ describe("ClientProfileComponent", () => {
     identity_locked: false, invitation_pending: false, invited_at: null,
   };
 
+  // Whether the account's plan opens the member app (Pro, or a trial).
+  const memberApp = signal(true);
+
   beforeEach(async () => {
+    memberApp.set(true);
     clientsService = jasmine.createSpyObj<ClientsService>("ClientsService", ["get", "update", "invite", "remove"]);
     contractTypesService = jasmine.createSpyObj<ContractTypesService>("ContractTypesService", ["list"]);
     contractsService = jasmine.createSpyObj<ContractsService>("ContractsService", ["create", "update", "renew", "cancel", "destroy", "receipt"]);
@@ -107,6 +113,7 @@ describe("ClientProfileComponent", () => {
         { provide: BookingsService, useValue: bookingsService },
         { provide: PaymentsService, useValue: paymentsService },
         { provide: AttendanceService, useValue: attendanceService },
+        { provide: ConfigurationService, useValue: { memberApp } },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: "cl1" }) } } },
       ],
     }).compileComponents();
@@ -596,6 +603,28 @@ describe("ClientProfileComponent", () => {
       component.client.set({ ...client, email: null });
       await component.inviteToApp();
       expect(clientsService.invite).not.toHaveBeenCalled();
+    });
+
+    // The member app comes with Pro: on Starter the menu says so instead of
+    // offering a button the backend would refuse.
+    it("offers the invitation only when the plan includes the member app", () => {
+      component.client.set({ ...client, email: "amy@example.com" });
+      fixture.detectChanges();
+      (fixture.nativeElement.querySelector("app-action-menu button") as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      const item = () =>
+        Array.from(fixture.nativeElement.querySelectorAll(".fx-menu-item") as NodeListOf<HTMLButtonElement>).find((b) =>
+          b.querySelector(".bi-phone")
+        )!;
+      expect(item().textContent).toContain("clients.invite_to_app");
+      expect(item().disabled).toBeFalse();
+
+      memberApp.set(false);
+      fixture.detectChanges();
+
+      expect(item().textContent).toContain("clients.invite_needs_pro");
+      expect(item().disabled).toBeTrue();
     });
 
     it("shows why an invitation was refused", async () => {

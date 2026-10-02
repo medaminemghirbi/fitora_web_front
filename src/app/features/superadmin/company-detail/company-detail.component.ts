@@ -4,7 +4,7 @@ import { FormsModule } from "@angular/forms";
 import { ActivatedRoute, RouterLink } from "@angular/router";
 import { TranslateModule, TranslateService } from "@ngx-translate/core";
 import { SuperadminCompany, SuperadminCurrencyOption } from "../../../core/models/superadmin-company.model";
-import { Invoice } from "../../../core/models/subscription.model";
+import { Invoice, PLAN_KEYS, PlanKey } from "../../../core/models/subscription.model";
 import { SuperadminCompaniesService } from "../../../core/services/superadmin-companies.service";
 import { AuthService } from "../../../core/auth/auth.service";
 import { ToastService } from "../../../core/services/toast.service";
@@ -64,24 +64,17 @@ export class SuperadminCompanyDetailComponent implements OnInit {
 
   private id!: string;
 
-  // ---- the access, read not computed --------------------------------------
   // ---- the plan ------------------------------------------------------------
-  // The three tiers, named as the admin sees them on their own subscription
-  // page. "" is unlimited: the backend reads a blank company_limit as nil,
-  // and a select cannot carry null.
-  readonly planOptions = [
-    { value: "1", nameKey: "subscription.tier_1" },
-    { value: "3", nameKey: "subscription.tier_3" },
-    { value: "", nameKey: "subscription.tier_unlimited" },
-  ];
+  // Starter or Pro, named as the admin sees them on their own subscription
+  // page. It is the ACCOUNT's: every salle the admin runs shares it.
+  readonly planOptions = PLAN_KEYS;
 
-  readonly plan = computed(() => {
-    const limit = this.company()?.admin.company_limit ?? null;
-    return limit === null ? "" : String(limit);
-  });
+  readonly plan = computed<PlanKey>(() => this.company()?.plan ?? "starter");
 
-  /** How many gyms the admin actually runs, against what the plan allows. */
+  /** Every salle one sale opens — this one, and the admin's others. */
+  readonly accountCompanies = computed(() => this.company()?.account_companies ?? []);
   readonly adminGyms = computed(() => this.company()?.admin.companies_count ?? 0);
+  readonly memberApp = computed(() => this.company()?.subscription?.member_app ?? false);
 
   readonly accessOpen = computed(() => this.company()?.subscription?.active ?? false);
   readonly lockReason = computed(() => this.company()?.subscription?.lock_reason ?? null);
@@ -137,8 +130,13 @@ export class SuperadminCompanyDetailComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.id = this.route.snapshot.paramMap.get("id")!;
-    this.load();
+    // A param subscription, not a snapshot: the account's other salles link
+    // to this same route, and Angular reuses the component between them.
+    this.route.paramMap.subscribe((params) => {
+      this.id = params.get("id")!;
+      this.activeTab.set("billing");
+      this.load();
+    });
   }
 
   load(): void {
@@ -222,22 +220,16 @@ export class SuperadminCompanyDetailComponent implements OnInit {
   }
 
   /**
-   * Moves the admin between plans. It is their tier, not this gym's, so
-   * every gym they run moves with it — the card says so, and a plan that
-   * would sit below the number of gyms they already have is refused here
-   * rather than leaving them over the limit.
+   * Moves the account between Starter and Pro. It is the account's plan, not
+   * this salle's, so every salle the admin runs moves with it — the card
+   * says so. Access and the free trial are left as they are: only an
+   * invoice ends a trial.
    */
-  changePlan(value: string): void {
-    if (this.savingPlan() || value === this.plan()) return;
-
-    const limit = value === "" ? null : Number(value);
-    if (limit !== null && limit < this.adminGyms()) {
-      this.toast.error(this.translate.instant("superadmin.plan_below_gyms", { count: this.adminGyms() }));
-      return;
-    }
+  changePlan(plan: PlanKey): void {
+    if (this.savingPlan() || plan === this.plan()) return;
 
     this.savingPlan.set(true);
-    this.service.updateCompanyLimit(this.id, limit).subscribe({
+    this.service.updateSubscription(this.id, { plan }).subscribe({
       next: (res) => {
         this.savingPlan.set(false);
         this.hydrate(res.company);

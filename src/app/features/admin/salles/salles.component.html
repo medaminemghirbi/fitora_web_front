@@ -1,0 +1,199 @@
+<div class="fx-stack">
+  <app-page-header [title]="'salles.title' | translate" [description]="'salles.subtitle' | translate">
+    @if (multiSalle()) {
+      <button type="button" class="btn btn-primary" (click)="openCreate()">
+        <i class="bi bi-plus-lg"></i> {{ "salles.new" | translate }}
+      </button>
+    } @else {
+      <!-- Starter runs one salle: the way to more is the plan. -->
+      <a routerLink="/admin/subscription" class="btn btn-outline-primary">
+        <i class="bi bi-lock"></i> {{ "salles.needs_pro" | translate }}
+      </a>
+    }
+  </app-page-header>
+
+  <!-- One account, one plan: said once here so no card reads as a salle
+       with a price of its own. -->
+  <p class="sl-plan-note">
+    <i class="bi" [class]="multiSalle() ? 'bi-stars' : 'bi-lock'" aria-hidden="true"></i>
+    <span>{{ planNoteKey() | translate }}</span>
+    <a routerLink="/admin/subscription">{{ "salles.plan_link" | translate }}</a>
+  </p>
+
+  @if (loading()) {
+    <app-skeleton variant="cards" [count]="3" />
+  } @else if (error()) {
+    <div class="app-card"><div class="app-card-body"><app-error-state (retry)="load()" /></div></div>
+  } @else {
+    <div class="sl-grid">
+      @for (salle of salles(); track salle.id) {
+        <article class="sl-card" [class.is-active]="salle.active">
+          <header class="sl-card-head">
+            <span class="sl-logo" aria-hidden="true">
+              @if (salle.logo_url) { <img [src]="salle.logo_url" alt="" /> } @else { <i class="bi bi-building"></i> }
+            </span>
+            <div class="sl-card-titles">
+              <h2>{{ salle.name }}</h2>
+              <span>{{ salle.city || ("salles.no_city" | translate) }}</span>
+            </div>
+            @if (salle.active) {
+              <span class="sl-here"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> {{ "salles.here" | translate }}</span>
+            }
+          </header>
+
+          <dl class="sl-stats">
+            <div>
+              <dt>{{ "salles.members" | translate }}</dt>
+              <dd>{{ salle.members_count }}</dd>
+            </div>
+            <div>
+              <dt>{{ "salles.moderators" | translate }}</dt>
+              <dd>{{ salle.moderator_ids.length }}</dd>
+            </div>
+          </dl>
+
+          <div class="sl-mods">
+            @for (moderator of moderatorsOf(salle); track moderator.id) {
+              <span class="sl-mod" [class.is-inactive]="!moderator.active">
+                <app-avatar [name]="moderator.full_name" [size]="22" />
+                {{ moderator.full_name }}
+              </span>
+            } @empty {
+              <span class="sl-mods-empty">{{ "salles.no_moderator" | translate }}</span>
+            }
+          </div>
+
+          <footer class="sl-card-foot">
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="openAssign(salle)">
+              <i class="bi bi-person-gear"></i> {{ "salles.assign" | translate }}
+            </button>
+            @if (!salle.active) {
+              <button type="button" class="btn btn-sm btn-primary" [disabled]="switching() !== null" (click)="switchTo(salle)">
+                <i class="bi bi-arrow-left-right"></i>
+                {{ (switching() === salle.id ? "salles.switching" : "salles.switch") | translate }}
+              </button>
+            }
+          </footer>
+        </article>
+      }
+
+      @if (multiSalle()) {
+        <button type="button" class="sl-card sl-card--add" (click)="openCreate()">
+          <i class="bi bi-plus-circle" aria-hidden="true"></i>
+          <strong>{{ "salles.new" | translate }}</strong>
+          <span>{{ "salles.new_hint" | translate }}</span>
+        </button>
+      } @else {
+        <a routerLink="/admin/subscription" class="sl-card sl-card--add is-locked">
+          <i class="bi bi-lock" aria-hidden="true"></i>
+          <strong>{{ "salles.needs_pro" | translate }}</strong>
+          <span>{{ "salles.needs_pro_hint" | translate }}</span>
+        </a>
+      }
+    </div>
+  }
+</div>
+
+<!-- Who works at one salle, among every moderator the admin has. -->
+<app-modal
+  [open]="assigning() !== null"
+  [title]="'salles.assign_title' | translate: { name: assigning()?.name }"
+  (closed)="closeAssign()"
+>
+  @if (assigning(); as salle) {
+    @if (moderators().length === 0) {
+      <app-empty-state [title]="'salles.no_moderators_title' | translate" [body]="'salles.no_moderators_body' | translate" icon="bi-person-badge">
+        <a routerLink="/admin/team" class="btn btn-primary">{{ "salles.go_to_team" | translate }}</a>
+      </app-empty-state>
+    } @else {
+      <p class="fx-muted">{{ "salles.assign_hint" | translate }}</p>
+      <ul class="sl-pick">
+        @for (moderator of moderators(); track moderator.id) {
+          <li>
+            <label class="sl-pick-item" [class.is-locked]="isOnlySalle(moderator, salle)">
+              <input
+                type="checkbox"
+                class="form-check-input"
+                [checked]="picked().has(moderator.id)"
+                [disabled]="isOnlySalle(moderator, salle) || savingModerators()"
+                (change)="toggle(moderator.id)"
+              />
+              <app-avatar [name]="moderator.full_name" [size]="32" />
+              <span class="sl-pick-body">
+                <strong>
+                  {{ moderator.full_name }}
+                  @if (!moderator.active) { <span class="badge text-bg-secondary">{{ "common.inactive" | translate }}</span> }
+                </strong>
+                <small>{{ moderator.role_name }} · <span dir="ltr">{{ moderator.email }}</span></small>
+                <span class="sl-pick-salles">
+                  @for (id of moderator.company_ids; track id) {
+                    <span class="sl-tag">{{ salleName(id) }}</span>
+                  }
+                </span>
+                @if (isOnlySalle(moderator, salle)) {
+                  <small class="sl-pick-lock">{{ "salles.only_salle" | translate }}</small>
+                }
+              </span>
+            </label>
+          </li>
+        }
+      </ul>
+
+      <div class="d-flex justify-content-end gap-2 mt-4">
+        <button type="button" class="btn btn-outline-secondary" [disabled]="savingModerators()" (click)="closeAssign()">
+          {{ "common.cancel" | translate }}
+        </button>
+        <button type="button" class="btn btn-primary" [disabled]="!assignDirty() || savingModerators()" (click)="saveModerators()">
+          {{ (savingModerators() ? "common.saving" : "common.save") | translate }}
+        </button>
+      </div>
+    }
+  }
+</app-modal>
+
+<!-- Another salle on the same account: no second trial, no second price. -->
+<app-modal [open]="creating()" [title]="'salles.new' | translate" (closed)="closeCreate()">
+  @if (createError()) {
+    <div class="alert alert-danger">{{ createError() }}</div>
+  }
+  <p class="fx-muted">{{ "salles.new_plan_hint" | translate: { plan: ("subscription.plan_" + planKey()) | translate } }}</p>
+
+  <form [formGroup]="form" (ngSubmit)="submitCreate()" novalidate>
+    <div class="mb-3">
+      <label for="salle-name">{{ "salles.name" | translate }} *</label>
+      <input id="salle-name" class="form-control" formControlName="name"
+             [class.is-invalid]="form.controls.name.touched && form.controls.name.invalid" />
+    </div>
+    <div class="row">
+      <div class="col-6 mb-3">
+        <label for="salle-city">{{ "salles.city" | translate }}</label>
+        <input id="salle-city" class="form-control" formControlName="city" />
+      </div>
+      <div class="col-6 mb-3">
+        <label for="salle-phone">{{ "salles.phone" | translate }}</label>
+        <input id="salle-phone" type="tel" dir="ltr" class="form-control" formControlName="phone" />
+      </div>
+    </div>
+    <div class="mb-3">
+      <label for="salle-timezone">{{ "company_setup.timezone" | translate }} *</label>
+      <select id="salle-timezone" class="form-select" formControlName="timezone">
+        @for (group of timezoneGroups; track group.region) {
+          <optgroup [label]="group.region">
+            @for (zone of group.zones; track zone.value) {
+              <option [value]="zone.value">{{ zone.label }}</option>
+            }
+          </optgroup>
+        }
+      </select>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2 mt-4">
+      <button type="button" class="btn btn-outline-secondary" [disabled]="savingSalle()" (click)="closeCreate()">
+        {{ "common.cancel" | translate }}
+      </button>
+      <button type="submit" class="btn btn-primary" [disabled]="savingSalle()">
+        {{ (savingSalle() ? "common.creating" : "salles.create") | translate }}
+      </button>
+    </div>
+  </form>
+</app-modal>

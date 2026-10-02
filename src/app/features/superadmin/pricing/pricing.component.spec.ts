@@ -16,10 +16,9 @@ describe("SuperadminPricingComponent", () => {
     currency: "TND",
     annual_discount_percent: 10,
     companies_count: 5,
-    tiers: [
-      { company_limit: 1, unlimited: false, monthly_cents: 15000, annual_cents: 162000 },
-      { company_limit: 3, unlimited: false, monthly_cents: 37500, annual_cents: 405000 },
-      { company_limit: 0, unlimited: true, monthly_cents: 75000, annual_cents: 810000 },
+    plans: [
+      { plan: "starter", monthly_cents: 15000, annual_cents: 162000, accounts_count: 4 },
+      { plan: "pro", monthly_cents: 25000, annual_cents: 270000, accounts_count: 1 },
     ],
   };
 
@@ -38,9 +37,12 @@ describe("SuperadminPricingComponent", () => {
     fixture.detectChanges();
   });
 
-  it("loads pricing for the default currency on init and hydrates all three tier rows" , () => {
+  it("loads pricing for the default currency on init and hydrates both plans", () => {
     expect(service.get).toHaveBeenCalledWith("TND");
-    expect(component.tiers().map((t) => t.monthlyUnits)).toEqual([ 150, 375, 750 ]);
+    expect(component.plans().map((p) => [p.plan, p.monthlyUnits, p.accountsCount])).toEqual([
+      ["starter", 150, 4],
+      ["pro", 250, 1],
+    ]);
     expect(component.discount()).toBe(10);
     expect(component.loading()).toBe(false);
   });
@@ -68,20 +70,29 @@ describe("SuperadminPricingComponent", () => {
     expect(fresh.componentInstance.dirty).toBe(false);
   });
 
-  it("dirty is true once any tier's price or the discount changes", () => {
-    component.tiers()[0].monthlyUnits = 200;
+  it("dirty is true once a plan's price or the discount changes", () => {
+    component.plans()[0].monthlyUnits = 200;
     expect(component.dirty).toBe(true);
   });
 
-  it("save() sends every tier's price keyed by company_limit, clamping negatives to 0" , () => {
-    component.tiers()[0].monthlyUnits = -5;
+  it("previews the year at the discount being typed, before saving", () => {
+    const pro = component.plans()[1];
+    expect(component.annualUnits(pro)).toBe(2700);
+
+    component.discount.set(20);
+
+    expect(component.annualUnits(pro)).toBe(2400);
+  });
+
+  it("save() sends both plans' prices keyed by plan, clamping negatives to 0", () => {
+    component.plans()[0].monthlyUnits = -5;
     service.update.and.returnValue(of(pricing));
 
     component.save();
 
     expect(service.update).toHaveBeenCalledWith({
       currency: "TND",
-      tiers: { "1": 0, "3": 37500, "0": 75000 },
+      plans: { starter: 0, pro: 25000 },
       annual_discount_percent: 10,
     });
     expect(component.saving()).toBe(false);

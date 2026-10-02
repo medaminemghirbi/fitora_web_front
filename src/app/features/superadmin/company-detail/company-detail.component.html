@@ -18,6 +18,9 @@
         </p>
       </div>
       <div class="ac-head-actions">
+        @if (c.plan) {
+          <span class="ac-plan-chip" [attr.data-plan]="c.plan">{{ ("subscription.plan_" + c.plan) | translate }}</span>
+        }
         <app-status-badge [status]="accessOpen() ? 'active' : 'cancelled'">
           {{ (accessOpen() ? "superadmin.access_open" : "superadmin.access_closed") | translate }}
         </app-status-badge>
@@ -93,10 +96,11 @@
           @if (onTrial()) {
             <strong>{{ "superadmin.trial_running" | translate }}</strong>
             <span class="ac-stat-sub">
-              {{ "superadmin.trial_days_left" | translate: { days: trialDaysLeft(), plan: ((c.subscription?.billing_period === "yearly" ? "subscription.plan_yearly" : "subscription.plan_monthly") | translate | lowercase) } }}
+              {{ "superadmin.trial_days_left" | translate: { days: trialDaysLeft(), plan: (("subscription.plan_" + plan()) | translate) + " · " + ((c.subscription?.billing_period === "yearly" ? "subscription.plan_yearly" : "subscription.plan_monthly") | translate | lowercase) } }}
             </span>
           } @else {
-            <strong>{{ (c.subscription?.billing_period === "yearly" ? "subscription.plan_yearly" : "subscription.plan_monthly") | translate }}</strong>
+            <strong>{{ ("subscription.plan_" + plan()) | translate }}</strong>
+            <span class="ac-stat-sub">{{ (c.subscription?.billing_period === "yearly" ? "subscription.plan_yearly" : "subscription.plan_monthly") | translate }}</span>
           }
         </div>
         <div class="ac-stat">
@@ -207,19 +211,23 @@
               </div>
             </div>
             <div class="app-card-body ac-form">
-              <!-- The plan is the admin's, not this gym's: every gym they
-                   run shares it and its price, so the hint says so instead
-                   of letting it read as a per-gym setting. -->
+              <!-- The plan is the account's, not this salle's: every salle the
+                   admin runs shares it and its price, so the hint says so
+                   instead of letting it read as a per-salle setting. -->
               <div>
                 <label for="ac-plan">{{ "superadmin.plan_label" | translate }}</label>
                 <select id="ac-plan" class="form-select" [value]="plan()" [disabled]="savingPlan()"
                         (change)="changePlan($any($event.target).value)">
-                  @for (opt of planOptions; track opt.value) {
-                    <option [value]="opt.value">{{ opt.nameKey | translate }}</option>
+                  @for (key of planOptions; track key) {
+                    <option [value]="key">{{ ("subscription.plan_" + key) | translate }} — {{ ("subscription.plan_" + key + "_for") | translate }}</option>
                   }
                 </select>
                 <p class="fx-muted ac-hint">
                   {{ "superadmin.plan_hint" | translate: { gyms: adminGyms(), price: (c.monthly_subscription_cents / 100 | money: c.currency) } }}
+                </p>
+                <p class="ac-hint ac-member-app" [class.is-on]="memberApp()">
+                  <i class="bi" [class.bi-phone]="memberApp()" [class.bi-dash-circle]="!memberApp()"></i>
+                  {{ (memberApp() ? (onTrial() ? "superadmin.member_app_trial" : "superadmin.member_app_on") : "superadmin.member_app_off") | translate }}
                 </p>
               </div>
 
@@ -255,6 +263,36 @@
                 {{ (accessOpen() ? "superadmin.suspend_access" : "superadmin.restore_access") | translate }}
               </button>
             </div>
+          </div>
+
+          <!-- What one sale opens: every salle under this admin, on the same
+               plan, the same access and the same invoices. -->
+          <div class="app-card">
+            <div class="app-card-header">
+              <div>
+                <h2>{{ "superadmin.account_companies_title" | translate: { count: accountCompanies().length } }}</h2>
+                <p class="fx-muted mb-0" style="font-size: 0.8125rem">{{ "superadmin.account_companies_subtitle" | translate }}</p>
+              </div>
+            </div>
+            <ul class="ac-account-list">
+              @for (salle of accountCompanies(); track salle.id) {
+                <li>
+                  @if (salle.current) {
+                    <span class="ac-account-item is-current">
+                      <i class="bi bi-building"></i>
+                      <span>{{ salle.name }}@if (salle.city) { <small> · {{ salle.city }}</small> }</span>
+                      <span class="ac-tag">{{ "superadmin.account_companies_here" | translate }}</span>
+                    </span>
+                  } @else {
+                    <a class="ac-account-item" [routerLink]="['/superadmin/companies', salle.id]">
+                      <i class="bi bi-building"></i>
+                      <span>{{ salle.name }}@if (salle.city) { <small> · {{ salle.city }}</small> }</span>
+                      <i class="bi bi-chevron-right ms-auto"></i>
+                    </a>
+                  }
+                </li>
+              }
+            </ul>
           </div>
         </div>
       </div>

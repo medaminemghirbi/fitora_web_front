@@ -15,6 +15,11 @@
             · <span class="ao-warn">{{ "superadmin.overview.locked_count" | translate: { count: m.companies.locked } }}</span>
           }
         </span>
+        @if (m.companies.plans; as plans) {
+          <span class="ao-note">
+            {{ "superadmin.overview.plans_split" | translate: { starter: plans.starter, pro: plans.pro } }}
+          </span>
+        }
       </article>
 
       <article class="ao-tile">

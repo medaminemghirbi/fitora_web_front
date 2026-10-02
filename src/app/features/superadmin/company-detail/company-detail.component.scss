@@ -363,3 +363,52 @@ label {
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: var(--space-4);
 }
+
+/* The account's plan beside its access, in the header: what was sold. */
+.ac-plan-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--color-surface-sunken);
+  color: var(--color-text-secondary);
+
+  &[data-plan="pro"] {
+    background: var(--color-primary-soft);
+    color: var(--color-primary);
+  }
+}
+
+/* Whether the plan opens the member app — the one thing Pro adds. */
+.ac-member-app {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--color-text-secondary);
+
+  &.is-on { color: var(--color-success); }
+}
+
+/* Every salle one sale opens. */
+.ac-account-list {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2) 0;
+}
+.ac-account-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem var(--space-5);
+  color: var(--color-text);
+  text-decoration: none;
+
+  small { color: var(--color-text-secondary); }
+
+  &:is(a):hover { background: var(--color-surface-sunken); }
+  &.is-current { font-weight: 600; }
+}

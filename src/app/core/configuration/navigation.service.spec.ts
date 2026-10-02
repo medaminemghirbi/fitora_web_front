@@ -83,6 +83,7 @@ describe("NavigationService", () => {
   it("secondaryItems lists everything for an admin", () => {
     build("admin", []);
     expect(service.secondaryItems().map((i) => i.path)).toEqual([
+      "/admin/salles",
       "/admin/subscription",
       "/admin/settings",
     ]);

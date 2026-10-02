@@ -1,93 +1,69 @@
 import { Component, computed, inject, signal } from "@angular/core";
 import { DatePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
+import { RouterLink } from "@angular/router";
 import { TranslateModule, TranslateService } from "@ngx-translate/core";
 import { SubscriptionInfo, SubscriptionService } from "../../../core/services/subscription.service";
+import { PlanKey } from "../../../core/models/subscription.model";
 import { SupportTicketsService } from "../../../core/services/support-tickets.service";
 import { AuthService } from "../../../core/auth/auth.service";
 import { ConfigurationService } from "../../../core/configuration/configuration.service";
 import { isValidPhone } from "../../../shared/utils/phone";
 import { ToastService } from "../../../core/services/toast.service";
 import { extractErrorMessage } from "../../../core/services/error.util";
-import { moduleIcon } from "../../../core/configuration/module-icons";
 import { MoneyPipe } from "../../../shared/pipes/money.pipe";
 import { ModalComponent } from "../../../shared/components/modal.component";
 import { SpinnerComponent } from "../../../shared/components/spinner.component";
 import { SkeletonComponent } from "../../../shared/ui/skeleton.component";
 import { ErrorStateComponent } from "../../../shared/ui/error-state.component";
 
-/** Where a tier stands on one feature. */
-export type Availability = "yes" | "no" | "soon";
-
-/** The three tiers, in the order the backend prices them. */
-type TierKey = "1" | "3" | "unlimited";
-
-/** A column of the comparison: a tier, or the free trial ahead of them. */
-type ColumnKey = TierKey | "trial";
-
-/**
- * The comparison, one row per feature.
- *
- * "soon" is the honest half: these are the multi-gym features a tier is sold
- * on, and the ones still being built say so in the cell instead of reading as
- * available tonight. Drop the flag to "yes" as each one ships.
- *
- * The six modules are not listed here — they come from the payload's
- * `included_modules`, and every tier carries all of them.
- */
-const FEATURE_MATRIX: { labelKey: string; rows: { key: string; values: Record<TierKey, Availability> }[] }[] = [
-  {
-    labelKey: "subscription.cmp_group_network",
-    rows: [
-      { key: "consolidated", values: { "1": "no", "3": "soon", unlimited: "soon" } },
-      { key: "network_pass", values: { "1": "no", "3": "soon", unlimited: "soon" } },
-      { key: "shared_team", values: { "1": "no", "3": "soon", unlimited: "soon" } },
-      { key: "shared_catalogue", values: { "1": "no", "3": "soon", unlimited: "soon" } },
-      { key: "per_gym_branding", values: { "1": "no", "3": "yes", unlimited: "yes" } },
-    ],
-  },
-  {
-    labelKey: "subscription.cmp_group_advanced",
-    rows: [
-      { key: "audit_log", values: { "1": "no", "3": "no", unlimited: "soon" } },
-      { key: "api", values: { "1": "no", "3": "no", unlimited: "soon" } },
-      { key: "priority_support", values: { "1": "no", "3": "no", unlimited: "yes" } },
-    ],
-  },
-];
-
-/** One tier as the table shows it — priced, named, and comparable. */
-export interface TierCard {
-  limit: number | null;
+/** One plan as the picker shows it — priced for the chosen period. */
+export interface PlanCard {
+  key: PlanKey;
   nameKey: string;
   price: number;
   current: boolean;
-  /** The free trial's column: no price, a length instead of a salle count. */
-  trial: boolean;
 }
 
-/** One row of the comparison: a feature, and where each tier stands on it. */
-export interface CompareRow {
+/** Where access stands, as the pill on the plan card says it. */
+export type AccessState = "open" | "due" | "closed" | "trial";
+
+/** Something every plan carries: a module, or the moderators. */
+export interface IncludedItem {
   key: string;
   labelKey: string;
-  values: Availability[];
 }
 
-export interface CompareGroup {
-  labelKey: string;
-  rows: CompareRow[];
+/** What only Pro (and the trial) carries, and whether this account has it. */
+export interface ProFeature {
+  key: "member_app" | "multi_salle" | "updates";
+  icon: string;
+  held: boolean;
+}
+
+const DAY_MS = 86_400_000;
+
+/** A `YYYY-MM-DD` date as local midnight. */
+function parseDay(iso: string): number {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).getTime();
+}
+
+function todayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 /**
- * The gym's own view of its Gymly access: whether it is open, until when,
- * what it is using, and what every tier costs.
+ * The admin's view of their account's Gymly access: what they are on, how
+ * far into the period they are, what the plan carries, and — on the side —
+ * changing plan.
  *
- * Read-only by design — there is nothing to ask for. The gym settles with
- * Gymly directly and Gymly confirms.
+ * Nothing is bought here. The admin asks for a plan, settles with Gymly
+ * directly, and Gymly confirms.
  *
- * The month-by-month invoice ledger, the invoice table and the bank details
- * were removed on request. The endpoint still returns `invoices` and
- * `payout`; nothing here reads them.
+ * The invoice table and the bank details were removed on request; the
+ * invoices are read only to place today inside the period it falls in.
  */
 @Component({
   selector: "app-subscription",
@@ -95,6 +71,7 @@ export interface CompareGroup {
   imports: [
     FormsModule,
     DatePipe,
+    RouterLink,
     TranslateModule,
     MoneyPipe,
     ModalComponent,
@@ -124,124 +101,146 @@ export class SubscriptionComponent {
   readonly daysBeforeLock = computed(() => this.sub()?.days_before_lock ?? null);
   readonly arrears = computed(() => (this.info()?.arrears_cents ?? 0) / 100);
   readonly currency = computed(() => this.info()?.currency ?? "TND");
+  /** Pro, or a free trial: members can sign in to their app. */
+  readonly memberApp = computed(() => this.sub()?.member_app ?? false);
+  /** Pro, or a free trial: the account may open another salle. */
+  readonly multiSalle = computed(() => this.sub()?.multi_salle ?? false);
 
   // ---- the free trial -----------------------------------------------------
-  // A new gym has paid nothing and chosen nothing. It used to be shown on
-  // Solo only because Solo is the default salle cap; now it is shown as what
-  // it is, until a first payment makes a tier current.
+  // A new account has paid nothing and chosen nothing. It is shown as what
+  // it is, until a first payment makes a plan current.
   readonly onTrial = computed(() => this.sub()?.trial ?? false);
   readonly trialDaysLeft = computed(() => this.sub()?.trial_days_left ?? 0);
   /** Free days still ahead and the door still open. */
   readonly trialRunning = computed(() => this.onTrial() && this.accessOpen() && this.trialDaysLeft() > 0);
   readonly trialOver = computed(() => this.onTrial() && !this.trialRunning());
 
-  // ---- the tiers ----------------------------------------------------------
-  // The payload has carried the full tier comparison all along and nothing
-  // rendered it: an admin could see what they pay but never what the next
-  // tier costs. Prices are real SubscriptionPrice rows in the gym's own
-  // currency, so nothing here is invented.
-  readonly billingPeriod = signal<"monthly" | "yearly">("monthly");
-
-  readonly tiers = computed<TierCard[]>(() => {
-    const info = this.info();
-    const paid = (info?.company_tiers ?? []).map((tier) => ({
-      limit: tier.company_limit,
-      // "Solo" / "Club" / "Réseau" — named by what they allow, not by a number.
-      nameKey: tier.company_limit === null ? "subscription.tier_unlimited" : `subscription.tier_${tier.company_limit}`,
-      price: (this.billingPeriod() === "yearly" ? tier.annual_cents : tier.monthly_cents) / 100,
-      // The admin's tier is the one whose limit matches theirs, unlimited
-      // included — both sides use null for it. Nothing is chosen on trial.
-      current: !this.onTrial() && tier.company_limit === (info?.company_limit ?? null),
-      trial: false,
-    }));
-
-    if (!this.trialRunning() || !paid.length) return paid;
-
-    // While it lasts, the trial leads the table as where the gym stands:
-    // free, and the whole product.
-    const trial: TierCard = {
-      limit: info?.company_limit ?? null,
-      nameKey: "subscription.tier_trial",
-      price: 0,
-      current: true,
-      trial: true,
-    };
-    return [trial, ...paid];
+  readonly accessState = computed<AccessState>(() => {
+    if (this.trialRunning()) return "trial";
+    if (this.trialOver() || !this.accessOpen()) return "closed";
+    return this.currentPeriodPaid() ? "open" : "due";
   });
 
-  readonly currentTierName = computed(() => {
+  readonly accessLabel = computed(() => {
+    if (this.trialRunning()) return "subscription.trial_running";
+    if (this.trialOver()) return "subscription.tier_trial_over";
+    return `subscription.pill_${this.accessState()}`;
+  });
+
+  // ---- what the account is on ---------------------------------------------
+  readonly currentPlanName = computed(() => {
     if (this.trialRunning()) return "subscription.tier_trial";
     if (this.trialOver()) return "subscription.tier_trial_over";
-    return this.tiers().find((t) => t.current)?.nameKey ?? "subscription.tier_1";
+    return `subscription.plan_${this.sub()?.plan ?? "starter"}`;
   });
 
-  /** What this gym is using against what its tier allows. */
+  readonly currentPlanTagline = computed(() => {
+    if (this.trialRunning()) return "subscription.tier_trial_for";
+    if (this.trialOver()) return "subscription.trial_over_sub";
+    return `${this.currentPlanName()}_for`;
+  });
+
+  /** What the account pays, for the period it is billed on. */
+  readonly currentPrice = computed(() => {
+    const info = this.info();
+    if (!info) return 0;
+    return (this.sub()?.billing_period === "yearly" ? info.annual_subscription_cents : info.monthly_subscription_cents) / 100;
+  });
+
+  /**
+   * The period today falls in, from the invoice that covers it (the trial
+   * included), and how far through it we are. Null before any invoice.
+   */
+  readonly period = computed(() => {
+    const invoices = this.info()?.invoices ?? [];
+    const today = todayIso();
+    const current = invoices.find((i) => i.period_start <= today && today <= i.period_end) ?? invoices[0];
+    if (!current) return null;
+
+    const start = parseDay(current.period_start);
+    const end = parseDay(current.period_end) + DAY_MS;
+    const done = Math.min(1, Math.max(0, (Date.now() - start) / (end - start)));
+    return { start: current.period_start, end: current.period_end, percent: Math.round(done * 100) };
+  });
+
+  /** Days until the next period starts: the day after the last one paid. */
+  readonly renewsIn = computed(() => {
+    const through = this.paidThrough();
+    if (!through) return null;
+    return Math.round((parseDay(through) - parseDay(todayIso())) / DAY_MS) + 1;
+  });
+
+  /** What the account covers: every salle, its team and its members. */
   readonly usage = computed(() => {
     const info = this.info();
     if (!info) return [];
 
     return [
-      {
-        key: "companies",
-        icon: "bi-building",
-        value: info.company_limit === null ? String(info.companies_count) : `${info.companies_count} / ${info.company_limit}`,
-      },
+      { key: "companies", icon: "bi-building", value: String(info.companies_count) },
       { key: "staff", icon: "bi-person-badge", value: String(info.staff_used) },
       { key: "clients", icon: "bi-people", value: String(info.clients_used) },
     ];
   });
 
   /**
-   * The modules the backend reports as included. Every tier carries all of
-   * them — the comparison says so explicitly rather than leaving the reader
-   * to assume the cheapest tier is a stripped one.
+   * What only Pro adds — several salles, the member app, every update —
+   * shown whatever the plan, so Starter sees what it is missing. The trial
+   * holds all three; updates follow the member app (Pro or trial).
    */
-  readonly features = computed(() =>
-    (this.info()?.included_modules ?? []).map((key) => ({
-      key,
-      icon: moduleIcon(key),
-      nameKey: `modules.${key}.name`,
+  readonly proFeatures = computed<ProFeature[]>(() => [
+    { key: "multi_salle", icon: "bi-buildings", held: this.multiSalle() },
+    { key: "member_app", icon: "bi-phone", held: this.memberApp() },
+    { key: "updates", icon: "bi-arrow-repeat", held: this.memberApp() },
+  ]);
+
+  /** What every plan carries: the modules the backend reports, and the moderators. */
+  readonly includedEverywhere = computed<IncludedItem[]>(() => [
+    ...(this.info()?.included_modules ?? []).map((key) => ({ key, labelKey: `modules.${key}.name` })),
+    { key: "shared_team", labelKey: "subscription.extra_shared_team" },
+  ]);
+
+  // ---- changing plan ------------------------------------------------------
+  // Starter and Pro, priced in the account's own currency from real
+  // SubscriptionPrice rows, so nothing here is invented.
+  readonly billingPeriod = signal<"monthly" | "yearly">("monthly");
+
+  readonly plans = computed<PlanCard[]>(() =>
+    (this.info()?.plans ?? []).map((plan) => ({
+      key: plan.key,
+      nameKey: `subscription.plan_${plan.key}`,
+      price: (this.billingPeriod() === "yearly" ? plan.annual_cents : plan.monthly_cents) / 100,
+      // Nothing is chosen on trial.
+      current: !this.onTrial() && plan.key === this.sub()?.plan,
     }))
   );
 
-  /**
-   * The comparison, in the same column order as `tiers()`: one group for the
-   * modules everybody gets, then what multi-gym and the top tier add.
-   */
-  readonly compareGroups = computed<CompareGroup[]>(() => {
-    const keys = this.tiers().map((t): ColumnKey =>
-      t.trial ? "trial" : ((t.limit === null ? "unlimited" : String(t.limit)) as TierKey)
-    );
-    if (!keys.length) return [];
-
-    const included: CompareGroup = {
-      labelKey: "subscription.cmp_group_included",
-      rows: this.features().map((f) => ({
-        key: f.key,
-        labelKey: f.nameKey,
-        values: keys.map(() => "yes" as Availability),
-      })),
-    };
-
-    const rest = FEATURE_MATRIX.map((group) => ({
-      labelKey: group.labelKey,
-      rows: group.rows.map((row) => ({
-        key: row.key,
-        labelKey: `subscription.extra_${row.key}`,
-        // The trial is the whole product, so it reads the top tier's column.
-        values: keys.map((k) => row.values[k === "trial" ? "unlimited" : k]),
-      })),
-    }));
-
-    return included.rows.length ? [included, ...rest] : rest;
+  /** The plan ticked in the picker. Until the admin picks, the one they are on — Pro on trial, the closest to it. */
+  readonly picked = signal<PlanKey | null>(null);
+  readonly pickedPlan = computed(() => {
+    const plans = this.plans();
+    const key = this.picked() ?? plans.find((p) => p.current)?.key ?? "pro";
+    return plans.find((p) => p.key === key) ?? plans[0] ?? null;
   });
 
-  // ---- asking to change tier ---------------------------------------------
-  // Payment happens outside the app, so "upgrading" is a conversation, not a
-  // transaction. The request rides on the support ticket the admin can
-  // already send and read back on /admin/support, rather than a second inbox
-  // that would have to be watched separately.
-  readonly requestTier = signal<TierCard | null>(null);
+  /** The picked plan on the period already billed: nothing to ask for. */
+  readonly pickIsCurrent = computed(() => {
+    const plan = this.pickedPlan();
+    if (!plan?.current) return false;
+    return (this.sub()?.billing_period ?? this.billingPeriod()) === this.billingPeriod();
+  });
+
+  /** Same plan, other period: a request to change how it is billed. */
+  readonly pickSwitchesPeriod = computed(() => !!this.pickedPlan()?.current && !this.pickIsCurrent());
+
+  /** Leaving Pro, or the trial, for Starter takes the member app and new salles away. */
+  readonly pickLosesPro = computed(() => this.pickedPlan()?.key === "starter" && (this.memberApp() || this.multiSalle()));
+
+  // ---- asking for a plan -------------------------------------------------
+  // Payment happens outside the app, so choosing a plan is a conversation,
+  // not a transaction. The request rides on the support ticket the admin
+  // can already send and read back on /admin/support, rather than a second
+  // inbox that would have to be watched separately.
+  readonly requestPlan = signal<PlanCard | null>(null);
   readonly requestNote = signal("");
   /**
    * Required: Gymly calls back to set the plan up, since payment happens
@@ -252,11 +251,15 @@ export class SubscriptionComponent {
   readonly phoneTouched = signal(false);
   readonly phoneValid = computed(() => isValidPhone(this.requestPhone()));
   readonly requesting = signal(false);
-  /** Set once sent, so the page stops offering what was just asked for. */
-  readonly requestedTiers = signal<string[]>([]);
+  /** Plan + period pairs sent, so the page stops offering what was just asked for. */
+  readonly requestedPlans = signal<string[]>([]);
 
-  openRequest(tier: TierCard): void {
-    this.requestTier.set(tier);
+  private requestKey(plan: PlanCard): string {
+    return `${plan.key}:${this.billingPeriod()}`;
+  }
+
+  openRequest(plan: PlanCard): void {
+    this.requestPlan.set(plan);
     this.requestNote.set("");
     // Most admins already gave a number somewhere: theirs first, then the
     // gym's. Still editable — the best number to reach them on may differ.
@@ -266,42 +269,35 @@ export class SubscriptionComponent {
 
   closeRequest(): void {
     if (this.requesting()) return;
-    this.requestTier.set(null);
+    this.requestPlan.set(null);
   }
 
-  requested(tier: TierCard): boolean {
-    return this.requestedTiers().includes(tier.nameKey);
+  requested(plan: PlanCard): boolean {
+    return this.requestedPlans().includes(this.requestKey(plan));
   }
 
   submitRequest(): void {
-    const tier = this.requestTier();
-    if (!tier || this.requesting()) return;
+    const plan = this.requestPlan();
+    if (!plan || this.requesting()) return;
 
     this.phoneTouched.set(true);
     if (!this.phoneValid()) return;
     const phone = this.requestPhone().trim();
 
-    const tierName = this.translate.instant(tier.nameKey);
+    const planName = this.translate.instant(plan.nameKey);
     const period = this.translate.instant(
       this.billingPeriod() === "yearly" ? "subscription.plan_yearly" : "subscription.plan_monthly"
     );
-    const subject = this.translate.instant("subscription.request_subject", { tier: tierName, period });
-    const body = this.translate.instant("subscription.request_body", {
-      tier: tierName,
-      period,
-      limit:
-        tier.limit === null
-          ? this.translate.instant("subscription.tier_limit_unlimited")
-          : this.translate.instant(`subscription.tier_limit${tier.limit === 1 ? "" : "_plural"}`, { count: tier.limit }),
-    });
+    const subject = this.translate.instant("subscription.request_subject", { plan: planName, period });
+    const body = this.translate.instant("subscription.request_body", { plan: planName, period });
     const note = this.requestNote().trim();
 
     this.requesting.set(true);
     this.tickets.create(subject, note ? `${body}\n\n${note}` : body, [], { kind: "upgrade", contact_phone: phone }).subscribe({
       next: () => {
         this.requesting.set(false);
-        this.requestTier.set(null);
-        this.requestedTiers.update((list) => [...list, tier.nameKey]);
+        this.requestPlan.set(null);
+        this.requestedPlans.update((list) => [...list, this.requestKey(plan)]);
         this.toast.success(this.translate.instant("subscription.request_sent"));
       },
       error: (err) => {
@@ -321,6 +317,9 @@ export class SubscriptionComponent {
     this.service.get().subscribe({
       next: (info) => {
         this.info.set(info);
+        // Open on the period the account is billed on, so its own plan
+        // shows the price actually paid.
+        this.billingPeriod.set(info.subscription?.billing_period === "yearly" ? "yearly" : "monthly");
         this.loading.set(false);
       },
       error: () => {

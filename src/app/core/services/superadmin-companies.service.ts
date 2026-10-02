@@ -2,15 +2,17 @@ import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
 import { SuperadminCompany, SuperadminCurrencyOption } from "../models/superadmin-company.model";
-import { Invoice } from "../models/subscription.model";
+import { Invoice, PlanKey } from "../models/subscription.model";
 import { API_BASE_URL } from "../models/api-config";
 import { User } from "../models/user.model";
 import { PageMeta } from "./sessions.service";
 
 export interface UpdateSubscriptionPayload {
-  /** The access itself. */
+  /** The access itself — for every salle of the account. */
   active?: boolean;
   billing_period?: string | null;
+  /** Starter or Pro — the account's, whichever salle it is set from. */
+  plan?: PlanKey;
 }
 
 @Injectable({ providedIn: "root" })
@@ -73,19 +75,6 @@ export class SuperadminCompaniesService {
   // superadmin manages on the company's behalf.
   updateSettings(id: string, settings: { currency?: string; locale?: string }): Observable<{ company: SuperadminCompany }> {
     return this.http.patch<{ company: SuperadminCompany }>(`${API_BASE_URL}/superadmin/companies/${id}/settings`, { company: settings });
-  }
-
-  // Records what the company currently owes Gymly off-app — informational,
-  // no invoicing happens in-app.
-  /**
-   * The admin's plan, as a number of gyms (1 = Solo, 3 = Club, null =
-   * unlimited / Réseau). Reached through one of their companies, but it
-   * moves every company they run — the backend says so too.
-   */
-  updateCompanyLimit(id: string, companyLimit: number | null): Observable<{ company: SuperadminCompany }> {
-    return this.http.patch<{ company: SuperadminCompany }>(`${API_BASE_URL}/superadmin/companies/${id}/company_limit`, {
-      company_limit: companyLimit,
-    });
   }
 
   impersonate(id: string): Observable<{ token: string; user: User }> {

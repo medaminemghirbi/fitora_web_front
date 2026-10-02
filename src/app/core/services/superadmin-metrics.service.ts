@@ -2,6 +2,7 @@ import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
 import { API_BASE_URL } from "../models/api-config";
+import { PlanKey } from "../models/subscription.model";
 
 export interface PlatformMetrics {
   companies: {
@@ -11,6 +12,8 @@ export interface PlatformMetrics {
     locked: number;
     new_this_month: number;
     new_last_month: number;
+    /** Admin ACCOUNTS on each plan — one account may run several gyms. */
+    plans: Record<PlanKey, number>;
   };
   members: {
     total: number;

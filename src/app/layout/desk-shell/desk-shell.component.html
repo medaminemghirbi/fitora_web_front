@@ -8,7 +8,10 @@
           <i class="bi bi-lightning-charge-fill"></i>
         }
       </span>
-      <span class="desk-brand-text">{{ "desk.title" | translate }}</span>
+      <span class="desk-brand-text">
+        {{ "desk.title" | translate }}
+        @if (activeSalle(); as salle) { <small class="desk-brand-salle">{{ salle.name }}</small> }
+      </span>
     </a>
 
     <!-- The whole point of this shell. Autofocused, because at a counter the
@@ -76,6 +79,15 @@
               <strong>{{ auth.currentUser()?.full_name }}</strong>
               <span>{{ auth.currentUser()?.email }}</span>
             </div>
+            @if (salles(); as list) {
+              <div class="desk-menu-label">{{ "nav.switch_company" | translate }}</div>
+              @for (c of list; track c.id) {
+                <button type="button" class="dropdown-item-custom" [class.is-active]="c.active" [disabled]="switching()" (click)="switchSalle(c.id)">
+                  <i class="bi bi-building"></i> {{ c.name }}
+                  @if (c.active) { <i class="bi bi-check-lg ms-auto"></i> }
+                </button>
+              }
+            }
             <button type="button" class="dropdown-item-custom" (click)="logout()">
               <i class="bi bi-box-arrow-right"></i> {{ "auth.logout" | translate }}
             </button>

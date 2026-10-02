@@ -247,6 +247,24 @@
   &.is-active { background: var(--color-primary-soft); color: var(--color-primary); i { color: var(--color-primary); } }
 }
 
+// The mobile panel's salles are buttons, not links: switching is an action.
+button.app-navbar-m-item {
+  width: 100%;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+// "Gérer mes salles", set apart from the salles above it.
+.app-company-switcher-manage {
+  border-top: 1px solid var(--color-border);
+  margin-top: 0.25rem;
+  padding-top: 0.6rem;
+  color: var(--color-primary);
+}
+
 .app-company-switcher-trigger {
   display: inline-flex;
   align-items: center;

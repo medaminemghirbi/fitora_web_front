@@ -20,6 +20,7 @@ import { ContractsService } from "../../../core/services/contracts.service";
 import { PaymentsService } from "../../../core/services/payments.service";
 import { SessionsService } from "../../../core/services/sessions.service";
 import { ConfirmService } from "../../../core/services/confirm.service";
+import { ConfigurationService } from "../../../core/configuration/configuration.service";
 import { ToastService } from "../../../core/services/toast.service";
 import { extractErrorMessage } from "../../../core/services/error.util";
 import { AvatarComponent } from "../../../shared/components/avatar.component";
@@ -214,7 +215,10 @@ export class ClientProfileComponent implements OnInit {
 
   // ---- the member's own app -----------------------------------------------
   // Off unless the gym switches it on, from here — by inviting them. The
-  // member chooses their own password from the emailed link.
+  // member chooses their own password from the emailed link. It comes with
+  // Gymly Pro: on Starter the entry says so instead of offering a button the
+  // backend would refuse.
+  readonly memberApp = inject(ConfigurationService).memberApp;
   readonly inviting = signal(false);
   readonly removing = signal(false);
 

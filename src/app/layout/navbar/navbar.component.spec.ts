@@ -177,8 +177,15 @@ describe("NavbarComponent", () => {
       return fresh.componentInstance;
     }
 
-    it("switchableCompanies is null for an admin with just one company", () => {
-      expect(freshWith({ role: "admin", companies: [companies[0]] }).switchableCompanies()).toBeNull();
+    // The switcher is also an admin's way to "Mes salles", where another
+    // salle is opened — so one salle is enough to show it.
+    it("switchableCompanies shows an admin's only salle", () => {
+      expect(freshWith({ role: "admin", companies: [companies[0]] }).switchableCompanies()).toEqual([companies[0]]);
+    });
+
+    it("switchableCompanies shows a moderator's salles only once there is more than one", () => {
+      expect(freshWith({ role: "staff", companies: [companies[0]] }).switchableCompanies()).toBeNull();
+      expect(freshWith({ role: "staff", companies }).switchableCompanies()).toEqual(companies);
     });
 
     it("switchableCompanies is null when there's no companies field at all (staff/superadmin)", () => {
@@ -220,7 +227,7 @@ describe("NavbarComponent", () => {
 
     it("switchCompany calls the service and reloads to the dashboard on success", () => {
       const admin = freshWith({ role: "admin", companies });
-      const reload = spyOn(admin as unknown as { reloadToDashboard(): void }, "reloadToDashboard");
+      const reload = spyOn(admin as unknown as { reloadToHome(): void }, "reloadToHome");
 
       admin.switchCompany("co-2");
 

@@ -7,7 +7,7 @@ import { SuperadminOverviewComponent } from "./superadmin-overview.component";
 
 function metrics(overrides: Partial<PlatformMetrics> = {}): PlatformMetrics {
   return {
-    companies: { total: 10, open: 8, locked: 2, new_this_month: 4, new_last_month: 2 },
+    companies: { total: 10, open: 8, locked: 2, new_this_month: 4, new_last_month: 2, plans: { starter: 6, pro: 3 } },
     members: { total: 250, new_this_month: 30 },
     activity: { sessions_last_30_days: 400, bookings_last_30_days: 1200, companies_with_activity: 5 },
     money: { invoiced_this_month_cents: 120_000, arrears_cents: 33_000, currency: "TND" },
@@ -50,13 +50,13 @@ describe("SuperadminOverviewComponent", () => {
     });
 
     it("reports a fall as a negative", async () => {
-      await build(metrics({ companies: { total: 10, open: 8, locked: 2, new_this_month: 1, new_last_month: 4 } }));
+      await build(metrics({ companies: { total: 10, open: 8, locked: 2, new_this_month: 1, new_last_month: 4, plans: { starter: 6, pro: 3 } } }));
 
       expect(component.signupTrend()).toBe(-75);
     });
 
     it("is null in a first month rather than inventing +100%", async () => {
-      await build(metrics({ companies: { total: 4, open: 4, locked: 0, new_this_month: 4, new_last_month: 0 } }));
+      await build(metrics({ companies: { total: 4, open: 4, locked: 0, new_this_month: 4, new_last_month: 0, plans: { starter: 4, pro: 0 } } }));
 
       expect(component.signupTrend()).toBeNull();
     });
@@ -72,7 +72,7 @@ describe("SuperadminOverviewComponent", () => {
     it("is null with no gyms at all, rather than dividing by zero", async () => {
       await build(
         metrics({
-          companies: { total: 0, open: 0, locked: 0, new_this_month: 0, new_last_month: 0 },
+          companies: { total: 0, open: 0, locked: 0, new_this_month: 0, new_last_month: 0, plans: { starter: 0, pro: 0 } },
           activity: { sessions_last_30_days: 0, bookings_last_30_days: 0, companies_with_activity: 0 },
         })
       );

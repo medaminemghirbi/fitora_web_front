@@ -47,6 +47,7 @@
               <th>{{ "superadmin.companies_title" | translate }}</th>
               <th>{{ "superadmin.admin" | translate }}</th>
               <th>{{ "common.status" | translate }}</th>
+              <th>{{ "superadmin.plan_label" | translate }}</th>
               <th class="fx-num">{{ "superadmin.total_month" | translate }}</th>
               <th aria-hidden="true"></th>
             </tr>
@@ -90,7 +91,25 @@
                     }
                   </div>
                 </td>
-                <td class="fx-num company-total">{{ (company.monthly_subscription_cents / 100) | money: company.currency }}</td>
+                <td>
+                  <!-- The account's plan: an admin with several salles shows
+                       it on each, with how many it covers. -->
+                  @if (company.plan) {
+                    <span class="company-plan" [attr.data-plan]="company.plan">{{ ("subscription.plan_" + company.plan) | translate }}</span>
+                  } @else {
+                    <span class="fx-muted">—</span>
+                  }
+                  @if (company.admin.companies_count > 1) {
+                    <div class="fx-muted" style="font-size: 0.8rem">{{ "superadmin.account_salles" | translate: { count: company.admin.companies_count } }}</div>
+                  }
+                </td>
+                <td class="fx-num company-total">
+                  {{ (company.monthly_subscription_cents / 100) | money: company.currency }}
+                  <!-- One price for the whole account: not charged again per salle. -->
+                  @if (company.admin.companies_count > 1) {
+                    <div class="company-total-note">{{ "superadmin.per_account" | translate }}</div>
+                  }
+                </td>
                 <td class="fx-num"><i class="bi bi-chevron-right fx-muted"></i></td>
               </tr>
             }

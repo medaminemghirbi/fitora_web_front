@@ -2,11 +2,11 @@ import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
 import { API_BASE_URL } from "../models/api-config";
-import { Invoice, Subscription } from "../models/subscription.model";
+import { Invoice, PlanKey, Subscription } from "../models/subscription.model";
 
-/** What one tier costs in the gym's own currency. */
-export interface CompanyTier {
-  company_limit: number | null;
+/** What one plan costs in the account's currency. */
+export interface PlanPrice {
+  key: PlanKey;
   monthly_cents: number;
   annual_cents: number;
 }
@@ -29,8 +29,10 @@ export interface PayoutAccount {
 
 export interface SubscriptionInfo {
   subscription: Subscription | null;
-  /** Newest first — the history, and what the gym downloads. */
+  /** Newest first — the history, and what the admin downloads. */
   invoices: Invoice[];
+  /** Across every salle the account covers. */
+  companies_count: number;
   clients_used: number;
   staff_used: number;
   currency: string | null;
@@ -43,15 +45,13 @@ export interface SubscriptionInfo {
   /** How long the free trial signup gives away lasts. */
   trial_days: number;
   included_modules: string[];
-  company_limit: number | null;
-  companies_count: number;
-  company_limit_reached: boolean;
-  company_tiers: CompanyTier[];
+  /** Both plans, in the account's currency. */
+  plans: PlanPrice[];
   payout: PayoutAccount | null;
 }
 
 /**
- * The gym's own view of its Gymly access. Read-only: there is nothing to
+ * The admin's view of their account's Gymly access. Read-only: there is nothing to
  * ask for. A gym settles with Gymly directly, Gymly confirms, and the
  * invoice appears here.
  */

@@ -3,7 +3,7 @@ import { Injectable, Injector, computed, inject, signal } from "@angular/core";
 import { Observable, catchError, of, shareReplay, tap } from "rxjs";
 import { API_BASE_URL } from "../models/api-config";
 import { Company } from "../models/company.model";
-import { LockReason } from "../models/subscription.model";
+import { LockReason, PlanKey } from "../models/subscription.model";
 import { OnboardingState } from "../models/onboarding.model";
 import { MePermissions, User } from "../models/user.model";
 import { BrandingService, CompanyBranding } from "../services/branding.service";
@@ -23,6 +23,12 @@ export interface BootstrapSubscription {
   trial: boolean;
   /** Free days left, today included. null outside a trial. */
   trial_days_left: number | null;
+  /** The account's plan — the same for every salle it runs. */
+  plan: PlanKey;
+  /** Whether members can sign in to their app: Pro, or a free trial. */
+  member_app: boolean;
+  /** Whether the account may open another salle: Pro, or a free trial. */
+  multi_salle: boolean;
 }
 
 export interface CompanyRole {
@@ -88,6 +94,11 @@ export class ConfigurationService {
   readonly roles = computed(() => this.state()?.roles ?? []);
   readonly permissionCatalog = computed(() => this.state()?.permission_catalog ?? {});
   readonly subscription = computed(() => this.state()?.subscription ?? null);
+  /**
+   * Whether this salle's members can use their app. True when nothing is
+   * known yet, so a screen never greys out a button the backend would allow.
+   */
+  readonly memberApp = computed(() => this.state()?.subscription?.member_app ?? true);
   readonly onboarding = computed(() => this.state()?.onboarding ?? null);
 
   // The company's name for a built-in role (e.g. "coach" → "Praticien" for a

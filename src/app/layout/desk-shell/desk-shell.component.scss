@@ -49,11 +49,29 @@
 }
 
 .desk-brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
   font-weight: 600;
   white-space: nowrap;
 
   // The name is the least useful thing here — it goes first when space runs out.
   @media (max-width: 720px) { display: none; }
+}
+
+// Which salle the desk is working for — only shown to a moderator posted
+// to several, who could otherwise not tell.
+.desk-brand-salle {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.desk-menu-label {
+  padding: 0.5rem 0.9rem 0.25rem;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
 }
 
 // ---------------------------------------------------------------------------

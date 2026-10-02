@@ -10,7 +10,7 @@
     <div class="app-card"><div class="app-card-body"><app-error-state (retry)="load()" /></div></div>
   } @else if (pricing()) {
     @if (pricing(); as p) {
-    <div class="app-card" style="max-width: 640px">
+    <div class="app-card" style="max-width: 720px">
       <div class="app-card-body">
         <div class="mb-3">
           <label class="form-label" for="pricing-currency">{{ "superadmin.currency" | translate }}</label>
@@ -20,19 +20,26 @@
           <div class="form-text">{{ "superadmin.pricing_companies_count" | translate: { count: p.companies_count } }}</div>
         </div>
 
-        <div class="form-label" role="heading" aria-level="3">{{ "superadmin.pricing_tiers_label" | translate }}</div>
+        <div class="form-label" role="heading" aria-level="3">{{ "superadmin.pricing_plans_label" | translate }}</div>
         <div class="mb-3">
-          @for (row of tiers(); track row.companyLimit) {
-            <div class="d-flex align-items-center gap-2 mb-2">
-              <span class="fx-strong" style="min-width: 11rem">{{ row.labelKey | translate }}</span>
-              <div class="input-group" style="max-width: 220px">
-                <input
-                  [id]="'pricing-tier-' + row.companyLimit"
-                  type="number" min="0" step="1" class="form-control"
-                  [ngModel]="row.monthlyUnits"
-                  (ngModelChange)="row.monthlyUnits = $event"
-                />
-                <span class="input-group-text">{{ currency() }} / {{ "subscription.per_month" | translate }}</span>
+          @for (row of plans(); track row.plan) {
+            <div class="pricing-plan">
+              <div class="pricing-plan-head">
+                <label class="fx-strong" [for]="'pricing-plan-' + row.plan">{{ ("subscription.plan_" + row.plan) | translate }}</label>
+                <span class="fx-muted">{{ ("superadmin.pricing_plan_" + row.plan + "_desc") | translate }}</span>
+              </div>
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <div class="input-group" style="max-width: 220px">
+                  <input
+                    [id]="'pricing-plan-' + row.plan"
+                    type="number" min="0" step="1" class="form-control"
+                    [ngModel]="row.monthlyUnits"
+                    (ngModelChange)="row.monthlyUnits = $event"
+                  />
+                  <span class="input-group-text">{{ currency() }} {{ "subscription.per_month" | translate }}</span>
+                </div>
+                <span class="fx-muted">{{ "superadmin.pricing_annual_preview" | translate: { amount: (annualUnits(row) | money: currency()) } }}</span>
+                <span class="badge text-bg-secondary">{{ "superadmin.pricing_accounts_count" | translate: { count: row.accountsCount } }}</span>
               </div>
             </div>
           }

@@ -101,6 +101,8 @@ export const routes: Routes = [
       { path: "coaches", pathMatch: "full", redirectTo: "team" },
       { path: "staff", pathMatch: "full", redirectTo: "team" },
       { path: "subscription", canActivate: [roleGuard("admin")], loadComponent: () => import("./features/admin/subscription/subscription.component").then((m) => m.SubscriptionComponent) },
+      // Every salle the admin runs: open one, switch to one, post moderators.
+      { path: "salles", canActivate: [roleGuard("admin")], loadComponent: () => import("./features/admin/salles/salles.component").then((m) => m.SallesComponent) },
       { path: "support", canActivate: [roleGuard("admin")], loadComponent: () => import("./features/admin/support/support.component").then((m) => m.AdminSupportComponent) },
       { path: "notifications", canActivate: [roleGuard("admin")], loadComponent: () => import("./features/admin/notifications/notifications-inbox.component").then((m) => m.NotificationsInboxComponent) },
       { path: "notifications/:id", canActivate: [roleGuard("admin")], loadComponent: () => import("./features/admin/notifications/notification-detail.component").then((m) => m.NotificationDetailComponent) },

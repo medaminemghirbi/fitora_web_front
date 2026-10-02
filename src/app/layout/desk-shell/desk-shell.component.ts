@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, HostListener, ViewChild, signal } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, HostListener, ViewChild, computed, inject, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from "@angular/router";
 import { TranslateModule } from "@ngx-translate/core";
@@ -7,6 +7,7 @@ import { AuthService } from "../../core/auth/auth.service";
 import { Client } from "../../core/models/client.model";
 import { BrandingService } from "../../core/services/branding.service";
 import { ClientsService } from "../../core/services/clients.service";
+import { CompanyService } from "../../core/services/company.service";
 import { ThemeService } from "../../core/services/theme.service";
 import { AvatarComponent } from "../../shared/components/avatar.component";
 
@@ -58,6 +59,18 @@ export class DeskShellComponent implements AfterViewInit {
   ];
 
   private readonly typed = new Subject<string>();
+  private readonly companies = inject(CompanyService);
+
+  /**
+   * The salles this moderator is posted to, once there is more than one to
+   * choose from — the admin posts them from "Mes salles".
+   */
+  readonly salles = computed(() => {
+    const companies = this.auth.currentUser()?.companies;
+    return companies && companies.length > 1 ? companies : null;
+  });
+  readonly activeSalle = computed(() => this.salles()?.find((c) => c.active) ?? null);
+  readonly switching = signal(false);
 
   constructor(
     readonly auth: AuthService,
@@ -134,5 +147,28 @@ export class DeskShellComponent implements AfterViewInit {
 
   logout(): void {
     this.auth.logout();
+  }
+
+  // A full reload: everything on screen, and the role this login holds,
+  // belongs to the salle it was working in.
+  switchSalle(id: string): void {
+    if (this.switching() || id === this.activeSalle()?.id) {
+      this.userMenuOpen.set(false);
+      return;
+    }
+
+    this.switching.set(true);
+    this.companies.switchTo(id).subscribe({
+      next: () => this.reloadToHome(),
+      error: () => {
+        this.switching.set(false);
+        this.userMenuOpen.set(false);
+      },
+    });
+  }
+
+  // Its own method so tests have a seam: window.location cannot be stubbed.
+  protected reloadToHome(): void {
+    window.location.assign("/");
   }
 }
