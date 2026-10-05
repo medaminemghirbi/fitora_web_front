@@ -55,12 +55,12 @@ function todayIso(): string {
 }
 
 /**
- * The admin's view of their account's Gymly access: what they are on, how
+ * The admin's view of their account's Fitora access: what they are on, how
  * far into the period they are, what the plan carries, and — on the side —
  * changing plan.
  *
- * Nothing is bought here. The admin asks for a plan, settles with Gymly
- * directly, and Gymly confirms.
+ * Nothing is bought here. The admin asks for a plan, settles with Fitora
+ * directly, and Fitora confirms.
  *
  * The invoice table and the bank details were removed on request; the
  * invoices are read only to place today inside the period it falls in.
@@ -243,7 +243,7 @@ export class SubscriptionComponent {
   readonly requestPlan = signal<PlanCard | null>(null);
   readonly requestNote = signal("");
   /**
-   * Required: Gymly calls back to set the plan up, since payment happens
+   * Required: Fitora calls back to set the plan up, since payment happens
    * off-app. The backend refuses a plan request without one too.
    */
   readonly requestPhone = signal("");

@@ -222,15 +222,26 @@
     </div>
     @if (createFormat() === "individual") {
       <div class="mb-3">
-        <label for="cs-client">{{ "schedule.member" | translate }} *</label>
+        <label for="cs-client">{{ "schedule.member" | translate }} ({{ "common.optional" | translate }})</label>
         <app-searchable-select
           id="cs-client"
           formControlName="client_id"
           [options]="clientOptions()"
           [placeholder]="'schedule.member_placeholder' | translate"
         />
-        <div class="form-text">{{ "schedule.member_hint" | translate }}</div>
+        <div class="form-text">{{ "schedule.member_open_hint" | translate }}</div>
       </div>
+      @if (showBookingKind()) {
+        <fieldset class="mb-3">
+          <legend class="form-label mb-1">{{ "bookings.kind_label" | translate }}</legend>
+          @for (kind of ["contract", "trial", "drop_in"]; track kind) {
+            <div class="form-check">
+              <input [id]="'cs-kind-' + kind" type="radio" class="form-check-input" formControlName="booking_kind" [value]="kind" />
+              <label [for]="'cs-kind-' + kind" class="form-check-label">{{ ("bookings.kind_" + kind) | translate }}</label>
+            </div>
+          }
+        </fieldset>
+      }
     }
     <div class="mb-3">
       <label for="cs-coach">{{ "bookings.coach" | translate }} ({{ "common.optional" | translate }})</label>
@@ -241,6 +252,17 @@
         }
       </select>
     </div>
+    @if (roomsOn() && spaces().length > 0) {
+      <div class="mb-3">
+        <label for="cs-space">{{ "calendar.room" | translate }} ({{ "common.optional" | translate }})</label>
+        <select id="cs-space" class="form-select" formControlName="space_id">
+          <option [ngValue]="null">—</option>
+          @for (room of spaces(); track room.id) {
+            <option [ngValue]="room.id">{{ room.name }}</option>
+          }
+        </select>
+      </div>
+    }
     <div class="row">
       <div class="col-6 mb-3">
         <label for="cs-date">{{ "bookings.date" | translate }} *</label>
@@ -251,7 +273,7 @@
         <input id="cs-time" type="time" class="form-control" formControlName="start_time" />
       </div>
     </div>
-    @if (createFormat() !== "individual") {
+    @if (canRepeat()) {
       <div class="mb-3">
         <label class="d-flex align-items-center gap-2" for="cs-repeat">
           <input id="cs-repeat" type="checkbox" formControlName="repeat_weekly" />

@@ -56,6 +56,8 @@ describe("AdminPaymentsComponent", () => {
     emergency_contact_name: null,
     emergency_contact_phone: null,
     notes: null,
+    health_notes: null,
+    waiver_signed_on: null,
     outstanding_balance: "50",
     attendance_rate: null,
     last_visit_at: null,
@@ -218,8 +220,8 @@ describe("AdminPaymentsComponent", () => {
       of({
         client: clientDetail,
         contracts: [
-          { current_period_id: "p1", payment_status: "unpaid", plan: { name: "Basic" }, final_price: "80" } as never,
-          { current_period_id: "p2", payment_status: "paid", plan: { name: "Basic" }, final_price: "80" } as never,
+          { id: "m1", payment_status: "unpaid", amount_due: 80, plan: { name: "Basic" }, final_price: "80" } as never,
+          { id: "m2", payment_status: "paid", amount_due: 0, plan: { name: "Basic" }, final_price: "80" } as never,
         ],
         bookings: [
           { id: "b1", payment_status: "unpaid", amount: 20, session: { activity_name: "Yoga" } } as never,
@@ -270,7 +272,7 @@ describe("AdminPaymentsComponent", () => {
       amount: 42,
       payment_method: "cash",
       notes: undefined,
-      contract_period_id: "p1",
+      contract_id: "p1",
       booking_id: undefined,
     });
     expect(component.recordModalOpen()).toBe(false);
@@ -289,7 +291,7 @@ describe("AdminPaymentsComponent", () => {
       amount: 20,
       payment_method: "cash",
       notes: "cash tip",
-      contract_period_id: undefined,
+      contract_id: undefined,
       booking_id: "b1",
     });
   });
@@ -305,7 +307,7 @@ describe("AdminPaymentsComponent", () => {
     expect(component.formError()).toBeTruthy();
   });
 
-  it("never offers card: Gymly takes no payment online and the API refuses it", () => {
+  it("never offers card: Fitora takes no payment online and the API refuses it", () => {
     expect(component.methodOptions.map((o) => o.value)).toEqual(["cash", "bank_transfer", "other"]);
   });
 });

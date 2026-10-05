@@ -1,7 +1,7 @@
 // Production environment. apiOrigin is empty so the app talks to the same
 // origin it is served from (the Kamal deployment serves the SPA and the
 // Rails API behind one host). Override here if the API moves to its own
-// subdomain, e.g. "https://api.gymly.io".
+// subdomain, e.g. "https://api.fitora.io".
 export const environment = {
   production: true,
   apiOrigin: "",

@@ -7,7 +7,7 @@ mobile/
 graphify-out/
 **/graphify-out/
 *.md
-gymly_prospects*
+fitora_prospects*
 
 # backend
 backend/.git

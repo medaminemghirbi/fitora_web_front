@@ -94,6 +94,6 @@ export const NAV_BLUEPRINT: NavGroupBlueprint[] = [
 // already carries them.
 export const SECONDARY_NAV: NavLeafBlueprint[] = [
   { path: "/admin/salles", icon: "bi-buildings", labelKey: "nav.my_salles", adminOnly: true },
-  { path: "/admin/subscription", icon: "bi-stars", labelKey: "nav.gymly_subscription", adminOnly: true },
+  { path: "/admin/subscription", icon: "bi-stars", labelKey: "nav.fitora_subscription", adminOnly: true },
   { path: "/admin/settings", icon: "bi-gear", labelKey: "nav.settings", adminOnly: true },
 ];

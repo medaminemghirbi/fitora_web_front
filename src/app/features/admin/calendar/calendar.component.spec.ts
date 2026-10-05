@@ -1,4 +1,8 @@
+import { signal } from "@angular/core";
 import { ComponentFixture, TestBed } from "@angular/core/testing";
+import { ConfigurationService } from "../../../core/configuration/configuration.service";
+import { Space } from "../../../core/models/space.model";
+import { SpacesService } from "../../../core/services/spaces.service";
 import { RecurringSchedulesService } from "../../../core/services/recurring-schedules.service";
 import { TranslateModule } from "@ngx-translate/core";
 import { of, throwError } from "rxjs";
@@ -44,6 +48,10 @@ describe("CalendarComponent", () => {
   let bookingsService: jasmine.SpyObj<BookingsService>;
   let clientsService: jasmine.SpyObj<ClientsService>;
   let recurringService: jasmine.SpyObj<RecurringSchedulesService>;
+  let spacesService: jasmine.SpyObj<SpacesService>;
+  /** The gym's feature switches, as the bootstrap payload carries them. */
+  const features = signal<Record<string, boolean>>({});
+  const cabin: Space = { id: "sp1", name: "Cabine 1", kind: "cabine", capacity: 1, active: true, activity_ids: [], deletable: true };
   let companyService: jasmine.SpyObj<CompanyService>;
   let confirmService: ConfirmService;
   let toast: ToastService;
@@ -78,6 +86,8 @@ describe("CalendarComponent", () => {
     clientsService = jasmine.createSpyObj<ClientsService>("ClientsService", ["list"]);
     companyService = jasmine.createSpyObj<CompanyService>("CompanyService", ["get"]);
     recurringService = jasmine.createSpyObj<RecurringSchedulesService>("RecurringSchedulesService", ["create", "stop"]);
+    spacesService = jasmine.createSpyObj<SpacesService>("SpacesService", ["list"]);
+    spacesService.list.and.returnValue(of({ spaces: [cabin] }));
 
     // FullCalendar renders for real in ChromeHeadless and immediately invokes
     // the events fetcher wired up by onDatesSet — every test needs this
@@ -101,6 +111,8 @@ describe("CalendarComponent", () => {
         { provide: ClientsService, useValue: clientsService },
         { provide: CompanyService, useValue: companyService },
         { provide: RecurringSchedulesService, useValue: recurringService },
+        { provide: ConfigurationService, useValue: { features: features } },
+        { provide: SpacesService, useValue: spacesService },
       ],
     });
 
@@ -111,6 +123,7 @@ describe("CalendarComponent", () => {
     fixture.detectChanges();
   }
 
+  beforeEach(() => features.set({}));
   beforeEach(() => build("admin"));
 
   function internal(): Internal {
@@ -234,12 +247,34 @@ describe("CalendarComponent", () => {
       expect(component.createForm.controls.client_id.enabled).toBe(true);
     });
 
-    it("selecting an individual activity locks capacity to 1 and requires a client", () => {
+    it("selecting an individual activity locks capacity to 1 and leaves the member optional, for an open slot", () => {
       component.createForm.controls.activity_id.setValue("a2");
       expect(component.createFormat()).toBe("individual");
       expect(component.createForm.controls.capacity.disabled).toBe(true);
       component.createForm.controls.client_id.updateValueAndValidity();
-      expect(component.createForm.controls.client_id.hasError("required")).toBe(true);
+      expect(component.createForm.controls.client_id.hasError("required")).toBe(false);
+    });
+
+    it("books a named member's trial into the one-to-one slot it creates", () => {
+      component.createForm.patchValue({
+        activity_id: "a2", client_id: client.id, booking_kind: "trial", date: "2026-01-06", start_time: "09:00",
+      });
+      sessionsService.create.and.returnValue(of({ session }));
+
+      component.submitCreate();
+
+      expect(sessionsService.create).toHaveBeenCalledWith(jasmine.objectContaining({ client_id: client.id, trial: true }));
+    });
+
+    it("sends no trial flag for an open slot, whatever the radio says", () => {
+      component.createForm.patchValue({ activity_id: "a2", booking_kind: "trial", date: "2026-01-06", start_time: "09:00" });
+      sessionsService.create.and.returnValue(of({ session }));
+
+      component.submitCreate();
+
+      const payload = sessionsService.create.calls.mostRecent().args[0];
+      expect(payload.client_id).toBeUndefined();
+      expect(payload.trial).toBeUndefined();
     });
 
     it("clearing the activity resets format and client requirement", () => {
@@ -329,9 +364,31 @@ describe("CalendarComponent", () => {
       expect(component.formError()).toBeTruthy();
     });
 
-    it("never repeats an individual session", () => {
-      component.createForm.patchValue({ activity_id: individualActivity.id, repeat_weekly: true });
+    it("never repeats an individual session booked for a member", () => {
+      component.createForm.patchValue({ activity_id: individualActivity.id, client_id: client.id, repeat_weekly: true });
       expect(component.repeats()).toBe(false);
+    });
+
+    it("repeats an open one-to-one slot every week, in its cabin", () => {
+      component.createForm.patchValue({
+        activity_id: individualActivity.id, space_id: cabin.id, date: "2026-01-06", start_time: "09:00",
+        repeat_weekly: true, repeat_until: "2026-03-03",
+      });
+      recurringService.create.and.returnValue(of({ generated: 9, skipped: 0, conflicts: [] }));
+
+      component.submitCreate();
+
+      expect(recurringService.create).toHaveBeenCalledWith(jasmine.objectContaining({ activity_id: "a2", space_id: cabin.id }));
+    });
+
+    it("lists the gym's rooms only when it runs them", () => {
+      expect(spacesService.list).not.toHaveBeenCalled();
+
+      features.set({ spaces: true });
+      build("admin");
+
+      expect(spacesService.list).toHaveBeenCalled();
+      expect(component.spaces().map((r) => r.id)).toEqual([cabin.id]);
     });
   });
 

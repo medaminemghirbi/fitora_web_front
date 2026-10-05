@@ -32,15 +32,14 @@
 // ---------------------------------------------------------------------------
 // The activity list
 // ---------------------------------------------------------------------------
-// Activities sit in the catalogue's narrow column, beside the plans. A table
-// could not survive there: seven columns in 24rem wrapped every cell onto
-// three lines and hid the tariffs behind a horizontal scrollbar. Each activity
-// is a row that stacks its own detail instead.
+// Each activity is a row that stacks its own detail: what it is, then what
+// each formule charges for it. It was drawn for a narrow column beside the
+// plans; it now has its own tab, and the prices sit in a wider row below.
 
 .act-toolbar {
   margin-bottom: 0; // the surrounding .fx-stack already spaces it
 
-  .fx-input-icon { flex: 1 1 8rem; min-width: 0; }
+  .fx-input-icon { flex: 0 1 24rem; min-width: 0; }
   .btn { flex: 0 0 auto; }
 }
 
@@ -104,18 +103,24 @@
   }
 }
 
+// One chip per formule. Rows with the price pushed to the far edge read
+// fine in a narrow column and fall apart across a full-width tab.
 .act-prices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
   list-style: none;
   margin: var(--space-2) 0 0;
   padding: 0;
 
   li {
-    display: flex;
+    display: inline-flex;
     align-items: baseline;
-    justify-content: space-between;
-    gap: var(--space-3);
-    padding: 0.15rem 0;
-    font-size: var(--font-size-sm);
+    gap: 0.4rem;
+    padding: 0.2rem 0.6rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    font-size: var(--font-size-xs);
   }
 }
 
@@ -138,4 +143,33 @@
   color: var(--color-warning);
   font-size: var(--font-size-xs);
   font-weight: 600;
+}
+
+.act-packs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+
+  i { color: var(--color-primary); }
+  strong { color: var(--color-text); font-weight: 600; }
+}
+
+.act-catalogue-loading {
+  display: grid;
+  place-items: center;
+  min-height: 200px;
+}
+
+.act-catalogue-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
 }

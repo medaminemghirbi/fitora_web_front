@@ -8,7 +8,7 @@ import { Client } from "../../../core/models/client.model";
 import { ClientFilters, ClientSort, ClientsService, ClientStatusFilter, EnrolmentSubscription } from "../../../core/services/clients.service";
 import { ContractTypesService } from "../../../core/services/contract-types.service";
 import { ActivitiesService } from "../../../core/services/activities.service";
-import { ContractType } from "../../../core/models/contract-type.model";
+import { ContractType, sellableItems, sellableTarget } from "../../../core/models/contract-type.model";
 import { Activity } from "../../../core/models/activity.model";
 import { BrandingService } from "../../../core/services/branding.service";
 import { PageMeta } from "../../../core/services/sessions.service";
@@ -116,7 +116,7 @@ export class ClientsListComponent implements OnInit {
   readonly activities = signal<Activity[]>([]);
 
   readonly subscriptionForm = this.fb.nonNullable.group({
-    activity_id: [""],
+    item: [""],
     contract_type_id: [""],
     starts_on: [new Date().toISOString().slice(0, 10)],
     discount: [0],
@@ -387,13 +387,18 @@ export class ClientsListComponent implements OnInit {
   openCreate(): void {
     this.createForm.reset();
     this.subscriptionForm.reset({
-      activity_id: "",
+      item: "",
       contract_type_id: "",
       starts_on: new Date().toISOString().slice(0, 10),
       discount: 0,
       collect_payment: true,
       payment_method: "cash",
     });
+    // The selects read these signals, not the form: left alone, the last
+    // member's formule came back on the next one.
+    this.selectedItem.set("");
+    this.selectedPlanId.set("");
+    this.discount.set(0);
     this.step.set(0);
     this.moreDetails.set(false);
     this.formError.set(null);
@@ -422,22 +427,37 @@ export class ClientsListComponent implements OnInit {
     this.translate.instant("clients.step_payment"),
   ]);
 
-  /** The plans that actually price the chosen activity — the rest aren't sold for it. */
-  readonly plansForActivity = computed(() => {
-    const activityId = this.selectedActivityId();
-    if (!activityId) return [];
-    return this.plans().filter((p) => p.activity_prices.some((row) => row.activity_id === activityId));
+  /**
+   * The packs some formule sells, read off the formules themselves — a pack
+   * no formule prices cannot be sold, so it isn't offered.
+   */
+  readonly packsForSale = computed(() => {
+    const labels = new Map<string, string>();
+    for (const plan of this.plans()) {
+      for (const row of plan.pack_prices ?? []) {
+        if (!labels.has(row.pack_id)) labels.set(row.pack_id, `${row.pack_name} (${row.activity_names.join(" + ")})`);
+      }
+    }
+    return [...labels].map(([id, label]) => ({ key: `pack:${id}`, label }));
+  });
+
+  /** The plans that actually price the chosen activity or pack — the rest aren't sold for it. */
+  readonly plansForItem = computed(() => {
+    const key = this.selectedItem();
+    if (!key) return [];
+    return this.plans().filter((p) => sellableItems(p).some((i) => i.key === key));
   });
 
   // Mirrors of the two selects, so the computeds below react to them: a
   // reactive form control is not a signal.
-  readonly selectedActivityId = signal("");
+  /** A SellableItem key: "activity:<id>" or "pack:<id>". */
+  readonly selectedItem = signal("");
   readonly selectedPlanId = signal("");
   readonly discount = signal(0);
 
   readonly basePrice = computed(() => {
     const plan = this.plans().find((p) => p.id === this.selectedPlanId());
-    return plan?.activity_prices.find((row) => row.activity_id === this.selectedActivityId())?.price ?? null;
+    return sellableItems(plan).find((i) => i.key === this.selectedItem())?.price ?? null;
   });
 
   readonly total = computed(() => {
@@ -445,11 +465,11 @@ export class ClientsListComponent implements OnInit {
     return base === null ? null : Math.max(base - (this.discount() || 0), 0);
   });
 
-  onActivityChange(id: string): void {
-    this.selectedActivityId.set(id);
-    this.subscriptionForm.patchValue({ activity_id: id });
-    // A plan that does not price the new activity cannot stay selected.
-    if (!this.plansForActivity().some((p) => p.id === this.selectedPlanId())) {
+  onItemChange(key: string): void {
+    this.selectedItem.set(key);
+    this.subscriptionForm.patchValue({ item: key });
+    // A plan that does not price the new activity or pack cannot stay selected.
+    if (!this.plansForItem().some((p) => p.id === this.selectedPlanId())) {
       this.selectedPlanId.set("");
       this.subscriptionForm.patchValue({ contract_type_id: "" });
     }
@@ -506,7 +526,7 @@ export class ClientsListComponent implements OnInit {
     const subscription: EnrolmentSubscription | undefined = this.selectedPlanId()
       ? {
           contract_type_id: this.selectedPlanId(),
-          activity_id: this.selectedActivityId(),
+          ...sellableTarget(this.selectedItem()),
           starts_on: this.subscriptionForm.getRawValue().starts_on,
           discount: this.discount(),
           collect_payment: this.subscriptionForm.getRawValue().collect_payment,

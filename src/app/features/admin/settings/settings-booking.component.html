@@ -60,6 +60,15 @@
     </div>
 
     <div class="sb-row">
+      <label class="sb-row-text" for="sb-dropin">
+        <span class="sb-row-label">{{ "settings.booking_drop_in" | translate }}</span>
+        <span class="sb-row-hint">{{ "settings.booking_drop_in_hint" | translate }}</span>
+      </label>
+      <input id="sb-dropin" type="checkbox" class="form-check-input" [checked]="s.features.drop_in"
+             [disabled]="saving()" (change)="setFeature('drop_in', $any($event.target).checked)" />
+    </div>
+
+    <div class="sb-row">
       <label class="sb-row-text" for="sb-waitlist">
         <span class="sb-row-label">{{ "settings.booking_waitlist" | translate }}</span>
         <span class="sb-row-hint">{{ "settings.booking_waitlist_hint" | translate }}</span>
@@ -67,6 +76,40 @@
       <input id="sb-waitlist" type="checkbox" class="form-check-input" [checked]="s.features.waitlist"
              [disabled]="saving()" (change)="setFeature('waitlist', $any($event.target).checked)" />
     </div>
+  </section>
+
+  <section class="sb-group">
+    <h2 class="sb-group-title">{{ "settings.booking_reminders" | translate }}</h2>
+
+    <div class="sb-row">
+      <label class="sb-row-text" for="sb-reminder">
+        <span class="sb-row-label">{{ "settings.booking_reminder" | translate }}</span>
+        <span class="sb-row-hint">{{ "settings.booking_reminder_hint" | translate }}</span>
+      </label>
+      <select id="sb-reminder" class="form-select form-select-sm sb-control" [disabled]="saving()"
+              [ngModel]="s.booking.reminder_hours"
+              (ngModelChange)="setRule('reminder_hours', $event)">
+        @for (hours of reminderWindows; track hours) {
+          <option [ngValue]="hours">
+            {{ hours === 0
+              ? ("settings.booking_reminder_off" | translate)
+              : ("settings.booking_hours_before" | translate: { count: hours }) }}
+          </option>
+        }
+      </select>
+    </div>
+
+    <!-- SMS is only a channel for a reminder that exists. -->
+    @if (s.booking.reminder_hours > 0) {
+      <div class="sb-row">
+        <label class="sb-row-text" for="sb-reminder-sms">
+          <span class="sb-row-label">{{ "settings.booking_reminder_sms" | translate }}</span>
+          <span class="sb-row-hint">{{ "settings.booking_reminder_sms_hint" | translate }}</span>
+        </label>
+        <input id="sb-reminder-sms" type="checkbox" class="form-check-input" [checked]="s.booking.reminder_sms"
+               [disabled]="saving()" (change)="setRule('reminder_sms', $any($event.target).checked)" />
+      </div>
+    }
   </section>
 
   <section class="sb-group">
@@ -88,6 +131,15 @@
       </label>
       <input id="sb-attendance" type="checkbox" class="form-check-input" [checked]="s.features.attendance"
              [disabled]="saving()" (change)="setFeature('attendance', $any($event.target).checked)" />
+    </div>
+
+    <div class="sb-row">
+      <label class="sb-row-text" for="sb-packs">
+        <span class="sb-row-label">{{ "settings.booking_packs" | translate }}</span>
+        <span class="sb-row-hint">{{ "settings.booking_packs_hint" | translate }}</span>
+      </label>
+      <input id="sb-packs" type="checkbox" class="form-check-input" [checked]="s.features.packs"
+             [disabled]="saving()" (change)="setFeature('packs', $any($event.target).checked)" />
     </div>
   </section>
 } @else if (loading()) {

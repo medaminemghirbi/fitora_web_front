@@ -3,6 +3,7 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive } from "@angular/ro
 import { filter } from "rxjs";
 import { TranslateModule } from "@ngx-translate/core";
 import { AuthService } from "../../core/auth/auth.service";
+import { ConfigurationService } from "../../core/configuration/configuration.service";
 import { NavGroup, NavLeaf } from "../../core/configuration/navigation.service";
 import { CommandPaletteService } from "../../core/services/command-palette.service";
 import { CompanyService } from "../../core/services/company.service";
@@ -27,7 +28,7 @@ export class NavbarComponent {
   @Input() groups: NavGroup[] = [];
   @Input() flatItems: NavLeaf[] = [];
   @Input() secondaryItems: NavLeaf[] = [];
-  @Input() brandName = "Gymly";
+  @Input() brandName = "Fitora";
   @Input() brandLogoUrl: string | null = null;
   @Input() brandHome = "/admin/dashboard";
   @Input() brandSuffix: string | null = null;
@@ -47,6 +48,7 @@ export class NavbarComponent {
   readonly theme = inject(ThemeService);
   readonly palette = inject(CommandPaletteService);
   private readonly companyService = inject(CompanyService);
+  private readonly config = inject(ConfigurationService);
   private readonly router = inject(Router);
 
   /**
@@ -110,6 +112,16 @@ export class NavbarComponent {
     if (!companies?.length) return null;
     return user?.role === "admin" || companies.length > 1 ? companies : null;
   });
+  /**
+   * Whether moving between them is open: several salles, on Pro (or the
+   * trial). A Starter account that kept several from Pro still sees them
+   * all, locked, with the way to Pro. Open until the plan is known — the
+   * backend has the last word anyway.
+   */
+  readonly canSwitch = computed(
+    () => (this.switchableCompanies()?.length ?? 0) > 1 && (this.config.subscription()?.multi_salle ?? true)
+  );
+  readonly switchLocked = computed(() => (this.switchableCompanies()?.length ?? 0) > 1 && !this.canSwitch());
   readonly isAdmin = computed(() => this.auth.currentUser()?.role === "admin");
   readonly activeCompany = computed(() => this.switchableCompanies()?.find((c) => c.active) ?? null);
 
@@ -171,7 +183,7 @@ export class NavbarComponent {
   // company that was active when it fetched — switching needs a clean
   // slate everywhere, not just wherever this component thinks to refetch.
   switchCompany(companyId: string): void {
-    if (this.switching() || companyId === this.activeCompany()?.id) {
+    if (this.switching() || !this.canSwitch() || companyId === this.activeCompany()?.id) {
       this.companySwitcherOpen.set(false);
       return;
     }

@@ -6,6 +6,8 @@ import { API_BASE_URL } from "../models/api-config";
 export interface WeeklyClassPayload {
   activity_id: string;
   coach_id: string | null;
+  /** Every generated session goes in this room or cabin. */
+  space_id?: string | null;
   /** "HH:MM" at the gym — the backend places it in the gym's time zone. */
   start_time: string;
   starts_on: string;

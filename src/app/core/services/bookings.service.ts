@@ -2,7 +2,7 @@ import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
 import { API_BASE_URL } from "../models/api-config";
-import { Booking } from "../models/booking.model";
+import { Booking, BookingKind } from "../models/booking.model";
 import { PageMeta } from "./sessions.service";
 
 export interface BookingFilters {
@@ -33,10 +33,17 @@ export class BookingsService {
     return this.http.get<BookingListResponse>(`${API_BASE_URL}/bookings`, { params });
   }
 
-  create(clientId: string, sessionId: string): Observable<{ booking: Booking }> {
+  /**
+   * `kind` is how the seat is paid for: the member's contract (the default),
+   * a free trial, or a single session owed on its own (drop-in). The last two
+   * are for someone with no contract yet — a studio's first contact.
+   */
+  create(clientId: string, sessionId: string, kind: BookingKind = "contract"): Observable<{ booking: Booking }> {
     return this.http.post<{ booking: Booking }>(`${API_BASE_URL}/bookings`, {
       client_id: clientId,
       session_id: sessionId,
+      ...(kind === "trial" ? { trial: true } : {}),
+      ...(kind === "drop_in" ? { drop_in: true } : {}),
     });
   }
 

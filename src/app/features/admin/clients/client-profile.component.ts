@@ -4,11 +4,11 @@ import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from "@angu
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { TranslateModule, TranslateService } from "@ngx-translate/core";
 import { Activity } from "../../../core/models/activity.model";
-import { Booking } from "../../../core/models/booking.model";
+import { Booking, BookingKind } from "../../../core/models/booking.model";
 import { ClientDetail } from "../../../core/models/client.model";
 import { Contract } from "../../../core/models/contract.model";
 import { Payment } from "../../../core/models/payment.model";
-import { ContractType } from "../../../core/models/contract-type.model";
+import { ContractType, SellableItem, sellableItems, sellableTarget } from "../../../core/models/contract-type.model";
 import { Session } from "../../../core/models/session.model";
 import { ActivitiesService } from "../../../core/services/activities.service";
 import { AttendanceService } from "../../../core/services/attendance.service";
@@ -138,7 +138,7 @@ export class ClientProfileComponent implements OnInit {
       stream: "sessions" as const,
       kind: BOOKING_KINDS[booking.status] ?? "booked",
       title: `${booking.session.activity_emoji ? booking.session.activity_emoji + " " : ""}${booking.session.activity_name}`,
-      detail: booking.covered_by?.name ?? null,
+      detail: this.coveredBy(booking),
     }));
 
     const money: TimelineEntry[] = this.payments().map((payment) => ({
@@ -148,7 +148,7 @@ export class ClientProfileComponent implements OnInit {
       at: payment.paid_at ?? payment.created_at,
       stream: "payments" as const,
       kind: payment.status === "refunded" ? "refunded" : "paid",
-      title: `${payment.amount} ${payment.currency}`,
+      title: `${Number(payment.amount)} ${payment.currency}`,
       detail: payment.product_name,
     }));
 
@@ -185,11 +185,12 @@ export class ClientProfileComponent implements OnInit {
   readonly paymentModalOpen = signal(false);
   readonly formError = signal<string | null>(null);
 
-  // Gymly only takes cash payments in the gym — there is no method selector.
+  // Fitora only takes cash payments in the gym — there is no method selector.
   // No part payments: "Encaisser maintenant" records the full price.
   readonly contractForm = this.fb.nonNullable.group({
     contract_type_id: [null as string | null, Validators.required],
-    activity_id: [null as string | null, Validators.required],
+    /** What the formule is sold for: a SellableItem key — an activity, or a pack. */
+    item: [null as string | null, Validators.required],
     starts_on: [toDateInputValue(new Date()), Validators.required],
     discount: [0],
     collect_payment: [false],
@@ -205,6 +206,17 @@ export class ClientProfileComponent implements OnInit {
     activity_id: [null as string | null, Validators.required],
     date: [toDateInputValue(new Date()), Validators.required],
     session_id: [null as string | null, Validators.required],
+    /** How the seat is paid for — see BookingsService.create. */
+    kind: ["contract" as BookingKind],
+  });
+
+  // ---- the health file ----------------------------------------------------
+  // What a coach must know before an EMS or reformer session, and when the
+  // member signed the studio's declaration. This gym's own copy.
+  readonly healthModalOpen = signal(false);
+  readonly healthForm = this.fb.nonNullable.group({
+    health_notes: [""],
+    waiver_signed_on: [""],
   });
 
   readonly paymentPayableOptions = signal<{ kind: "contract" | "booking"; id: string; label: string; amountDue: number }[]>([]);
@@ -216,9 +228,13 @@ export class ClientProfileComponent implements OnInit {
   // ---- the member's own app -----------------------------------------------
   // Off unless the gym switches it on, from here — by inviting them. The
   // member chooses their own password from the emailed link. It comes with
-  // Gymly Pro: on Starter the entry says so instead of offering a button the
+  // Fitora Pro: on Starter the entry says so instead of offering a button the
   // backend would refuse.
-  readonly memberApp = inject(ConfigurationService).memberApp;
+  private readonly configuration = inject(ConfigurationService);
+  readonly memberApp = this.configuration.memberApp;
+  /** Whether the desk may book a trial or a single paid session (Settings → Booking). */
+  readonly dropIn = computed(() => this.configuration.features()["drop_in"] !== false);
+  readonly pausing = signal(false);
   readonly inviting = signal(false);
   readonly removing = signal(false);
 
@@ -249,6 +265,14 @@ export class ClientProfileComponent implements OnInit {
     this.load();
 
     this.bookingForm.controls.activity_id.valueChanges.subscribe(() => this.onBookingFiltersChange());
+    // A new formule may not sell what was picked under the last one; when it
+    // sells a single thing, that thing is the answer.
+    this.contractForm.controls.contract_type_id.valueChanges.subscribe(() => {
+      const items = this.saleItems();
+      const current = this.contractForm.controls.item.value;
+      if (items.some((i) => i.key === current)) return;
+      this.contractForm.controls.item.setValue(items.length === 1 ? items[0].key : null);
+    });
     this.bookingForm.controls.date.valueChanges.subscribe(() => this.onBookingFiltersChange());
   }
 
@@ -348,21 +372,23 @@ export class ClientProfileComponent implements OnInit {
     return this.contractTypes().find((p) => p.id === id) ?? null;
   }
 
-  // What the chosen activity costs under the chosen plan. null means the gym
-  // doesn't sell that plan for that activity — the backend refuses it too, so
+  /** What the chosen formule can be sold for — its activities, then its packs. */
+  saleItems(): SellableItem[] {
+    return sellableItems(this.selectedPlan());
+  }
+
+  // What the chosen activity or pack costs under the chosen plan. null means
+  // the gym doesn't sell that plan for it — the backend refuses it too, so
   // the form blocks instead of inventing a price.
-  selectedActivityPrice(): number | null {
-    const plan = this.selectedPlan();
-    const activityId = this.contractForm.controls.activity_id.value;
-    if (!plan || !activityId) return null;
-    const row = plan.activity_prices.find((p) => p.activity_id === activityId);
-    return row ? Number(row.price) : null;
+  selectedItemPrice(): number | null {
+    const key = this.contractForm.controls.item.value;
+    return this.saleItems().find((i) => i.key === key)?.price ?? null;
   }
 
   // Price after the discount typed in the create form, clamped at 0. Indicative
   // only: the API re-reads the tariff and decides what is actually billed.
   contractFormTotal(): number {
-    const price = this.selectedActivityPrice();
+    const price = this.selectedItemPrice();
     if (price === null) return 0;
     return Math.max(0, price - (this.contractForm.controls.discount.value || 0));
   }
@@ -383,7 +409,7 @@ export class ClientProfileComponent implements OnInit {
       return;
     }
 
-    const { contract_type_id, activity_id, starts_on, discount, collect_payment } = this.contractForm.getRawValue();
+    const { contract_type_id, item, starts_on, discount, collect_payment } = this.contractForm.getRawValue();
     this.saving.set(true);
     this.formError.set(null);
 
@@ -391,7 +417,7 @@ export class ClientProfileComponent implements OnInit {
       .create({
         client_id: this.clientId,
         contract_type_id: contract_type_id!,
-        activity_id: activity_id!,
+        ...sellableTarget(item),
         starts_on,
         discount: discount || 0,
         collect_payment: collect_payment || undefined,
@@ -461,7 +487,6 @@ export class ClientProfileComponent implements OnInit {
   }
 
   async collectPayment(contract: Contract): Promise<void> {
-    if (!contract.current_period_id) return;
     const confirmed = await this.confirm.ask({
       title: this.translate.instant("clients.collect_confirm_title"),
       body: this.translate.instant("clients.collect_confirm_body", { amount: contract.amount_due }),
@@ -469,7 +494,7 @@ export class ClientProfileComponent implements OnInit {
     if (!confirmed) return;
 
     this.paymentsService
-      .record({ client_id: this.clientId, payment_method: "cash", contract_period_id: contract.current_period_id })
+      .record({ client_id: this.clientId, payment_method: "cash", contract_id: contract.id })
       .subscribe({
         next: () => {
           this.toast.success(this.translate.instant("common.save"));
@@ -481,17 +506,22 @@ export class ClientProfileComponent implements OnInit {
 
   downloadReceipt(contract: Contract): void {
     this.contractsService.receipt(contract.id).subscribe({
-      next: (blob) => downloadBlob(blob, `recu-${contract.id}.pdf`),
+      next: (blob) => downloadBlob(blob, `facture-${contract.invoice_ref}.pdf`),
       error: () => this.toast.error(this.translate.instant("common.error_generic")),
     });
   }
 
-  /** How far this contract is sold once its queued renewals are counted. */
-  renewedThrough(contract: Contract): string | null {
-    return contract.upcoming_periods.at(-1)?.expires_at ?? null;
+  /** The contract to sign, already signed by the gym (its default signature). */
+  downloadAgreement(contract: Contract): void {
+    this.contractsService.agreement(contract.id).subscribe({
+      next: (blob) => downloadBlob(blob, `contrat-${contract.invoice_ref}.pdf`),
+      error: () => this.toast.error(this.translate.instant("common.error_generic")),
+    });
   }
 
   async renewContract(contract: Contract): Promise<void> {
+    // The backend refuses anything else — see Contract#renewable?.
+    if (!contract.renewable) return;
     const confirmed = await this.confirm.ask({
       title: this.translate.instant("contracts.renew_confirm_title"),
       body: this.translate.instant("contracts.renew_confirm_body"),
@@ -541,9 +571,92 @@ export class ClientProfileComponent implements OnInit {
     });
   }
 
+  /** What paid for a booking, in words, for the timeline. */
+  private coveredBy(booking: Booking): string | null {
+    const covered = booking.covered_by;
+    if (!covered) return null;
+    if (covered.type === "contract") return covered.name;
+    return this.translate.instant(`bookings.kind_${covered.type}`);
+  }
+
+  // === Pause ===
+  /**
+   * A membership on hold — an injury, a pregnancy, a month away. Nothing
+   * books against it, and resuming gives the held days back.
+   */
+  async togglePause(contract: Contract): Promise<void> {
+    const pausing = !contract.paused;
+    if (pausing) {
+      const confirmed = await this.confirm.ask({
+        title: this.translate.instant("contracts.pause_confirm_title"),
+        body: this.translate.instant("contracts.pause_confirm_body", { name: contract.client.full_name }),
+      });
+      if (!confirmed) return;
+    }
+
+    this.pausing.set(true);
+    const request = pausing ? this.contractsService.pause(contract.id) : this.contractsService.resume(contract.id);
+    request.subscribe({
+      next: () => {
+        this.pausing.set(false);
+        this.toast.success(this.translate.instant(pausing ? "contracts.paused_done" : "contracts.resumed_done"));
+        this.load();
+      },
+      error: (err) => {
+        this.pausing.set(false);
+        this.toast.error(extractErrorMessage(err, this.translate.instant("common.error_generic")));
+      },
+    });
+  }
+
+  // === Health ===
+  openHealthModal(): void {
+    const client = this.client();
+    this.healthForm.reset({
+      health_notes: client?.health_notes ?? "",
+      waiver_signed_on: client?.waiver_signed_on ?? "",
+    });
+    this.formError.set(null);
+    this.healthModalOpen.set(true);
+  }
+
+  closeHealthModal(): void {
+    this.healthModalOpen.set(false);
+  }
+
+  /** Today, for the "signed today" shortcut — the usual case at a first visit. */
+  signWaiverToday(): void {
+    this.healthForm.controls.waiver_signed_on.setValue(toDateInputValue(new Date()));
+  }
+
+  submitHealth(): void {
+    const { health_notes, waiver_signed_on } = this.healthForm.getRawValue();
+    this.saving.set(true);
+    this.formError.set(null);
+
+    this.clientsService
+      .update(this.clientId, { health_notes: health_notes.trim() || null, waiver_signed_on: waiver_signed_on || null })
+      .subscribe({
+        next: () => {
+          this.saving.set(false);
+          this.healthModalOpen.set(false);
+          this.toast.success(this.translate.instant("common.saved"));
+          this.load();
+        },
+        error: (err) => {
+          this.saving.set(false);
+          this.formError.set(extractErrorMessage(err, this.translate.instant("common.error_generic")));
+        },
+      });
+  }
+
   // === Booking ===
   openBookingModal(): void {
-    this.bookingForm.reset({ date: toDateInputValue(new Date()) });
+    // Someone with nothing to book against is, at a studio, almost always
+    // there for a first session: start from the trial rather than a refusal.
+    const covered = !!this.client()?.current_contract && !this.client()?.current_contract?.paused;
+    const kind: BookingKind = covered || !this.dropIn() ? "contract" : "trial";
+    this.bookingForm.reset({ date: toDateInputValue(new Date()), kind });
     this.availableSessions.set([]);
     this.formError.set(null);
     this.bookingModalOpen.set(true);
@@ -572,7 +685,8 @@ export class ClientProfileComponent implements OnInit {
     this.saving.set(true);
     this.formError.set(null);
 
-    this.bookingsService.create(this.clientId, this.bookingForm.getRawValue().session_id!).subscribe({
+    const { session_id, kind } = this.bookingForm.getRawValue();
+    this.bookingsService.create(this.clientId, session_id!, kind).subscribe({
       next: () => {
         this.saving.set(false);
         this.bookingModalOpen.set(false);
@@ -606,10 +720,15 @@ export class ClientProfileComponent implements OnInit {
   // === Payment (bookings & one-offs — abonnements are settled from their card) ===
   openPaymentModal(): void {
     this.paymentForm.reset();
-    const options = this.bookings()
+    // Each contract is one term with its own price, so whatever is owed on
+    // one — a renewal sold early included — is offered on its own line.
+    const contracts = this.contracts()
+      .filter((c) => Number(c.amount_due) > 0)
+      .map((c) => ({ kind: "contract" as const, id: c.id, label: `${this.translate.instant("contracts.title")} — ${c.plan.name}`, amountDue: Number(c.amount_due) }));
+    const bookings = this.bookings()
       .filter((b) => b.payment_status !== "paid" && b.amount > 0)
       .map((b) => ({ kind: "booking" as const, id: b.id, label: `${this.translate.instant("bookings.title")} — ${b.session.activity_name}`, amountDue: b.amount }));
-    this.paymentPayableOptions.set(options);
+    this.paymentPayableOptions.set([...contracts, ...bookings]);
     this.formError.set(null);
     this.paymentModalOpen.set(true);
   }
@@ -635,7 +754,7 @@ export class ClientProfileComponent implements OnInit {
         client_id: this.clientId,
         payment_method: "cash",
         notes: notes || undefined,
-        contract_period_id: kind === "contract" ? id : undefined,
+        contract_id: kind === "contract" ? id : undefined,
         booking_id: kind === "booking" ? id : undefined,
       })
       .subscribe({

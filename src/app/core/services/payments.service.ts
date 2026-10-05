@@ -19,7 +19,7 @@ export interface RecordPaymentPayload {
   amount?: number;
   payment_method: PaymentMethod;
   notes?: string;
-  contract_period_id?: string;
+  contract_id?: string;
   booking_id?: string;
 }
 

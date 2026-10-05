@@ -27,6 +27,7 @@ describe("ContractsComponent", () => {
     currency: "TND",
     billing_period: "monthly",
     duration_days: 30,
+    validity_days: null,
     session_count: null,
     unlimited_bookings: true,
     booking_limit: null,
@@ -35,11 +36,14 @@ describe("ContractsComponent", () => {
     active: true,
     activity_ids: [],
     activity_prices: [{ activity_id: "a1", activity_name: "Yoga", activity_emoji: "🧘", price: 100 }],
+    pack_prices: [],
   };
   const contract: Contract = {
     id: "m1",
-    current_period_id: "p1",
+    invoice_ref: "FAC-2026-0001",
     status: "active",
+    paused: false,
+    paused_at: null,
     starts_at: "2026-01-01",
     expires_at: "2026-02-01",
     remaining_bookings: null,
@@ -51,7 +55,7 @@ describe("ContractsComponent", () => {
     amount_due: "0",
     plan: contractType,
     activity: { id: "a1", name: "Yoga", emoji: "\u{1F9D8}" },
-    all_access: false, upcoming_periods: [], payable_period_id: null,
+    all_access: false, renewed_from_id: null, renewal: null, renewable: true,
     activity_label: "Yoga",
     client: { id: "cl1", full_name: "Amy Client", phone: null },
   };
@@ -136,6 +140,7 @@ describe("ContractsComponent", () => {
       "expiring",
       "expired",
       "pending",
+      "paused",
       "cancelled",
     ]);
   });
@@ -217,6 +222,56 @@ describe("ContractsComponent — arriving from the dashboard", () => {
   });
 });
 
+describe("ContractsComponent — the renew button", () => {
+  function rowWith(overrides: Partial<Contract>): HTMLElement {
+    TestBed.resetTestingModule();
+    const contract = {
+      id: "m1", invoice_ref: "FAC-2026-0001", status: "active", paused: false, payment_status: "paid", amount_due: "0", discount: "0.0",
+      final_price: "100", base_price: "100", starts_at: "2026-01-01", expires_at: "2026-02-01",
+      renewed_from_id: null, renewal: null, renewable: false, activity: null, activity_label: "Yoga",
+      plan: { id: "ct1", name: "Mensuel", currency: "TND", color: "#000" },
+      client: { id: "cl1", full_name: "Amy Client", phone: null },
+      ...overrides,
+    } as never as Contract;
+    const contractsService = jasmine.createSpyObj<ContractsService>("ContractsService", ["list"]);
+    contractsService.list.and.returnValue(
+      of({ contracts: [contract], meta: { page: 1, per_page: 20, total: 1, total_pages: 1 }, counts: {}, plan_counts: {}, totals: { portfolio_value: 0, average_basket: 0, unpaid_value: 0, expiring_soon: 0 } })
+    );
+    const contractTypesService = jasmine.createSpyObj<ContractTypesService>("ContractTypesService", ["list"]);
+    contractTypesService.list.and.returnValue(of({ plans: [] }));
+    TestBed.configureTestingModule({
+      imports: [ContractsComponent, TranslateModule.forRoot()],
+      providers: [
+        provideHttpClientTesting(),
+        provideHttpClient(),
+        provideRouter([]),
+        { provide: ContractsService, useValue: contractsService },
+        { provide: ContractTypesService, useValue: contractTypesService },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({}) } } },
+      ],
+    });
+    const fixture = TestBed.createComponent(ContractsComponent);
+    fixture.detectChanges();
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  const renewButtons = (el: HTMLElement) =>
+    Array.from(el.querySelectorAll(".fx-row-actions button")).filter((b) => b.textContent?.includes("contracts.renew"));
+
+  it("is offered on a term the backend says can be renewed", () => {
+    expect(renewButtons(rowWith({ renewable: true })).length).toBe(1);
+  });
+
+  it("is not offered on a term ending later, or already renewed", () => {
+    expect(renewButtons(rowWith({ renewable: false })).length).toBe(0);
+  });
+
+  it("shows no discount line for a discount of zero", () => {
+    expect(rowWith({ discount: "0.0" }).querySelector("td .fx-cell-sub.text-warning-token")).toBeNull();
+    expect(rowWith({ discount: "20.0" }).querySelector("td .fx-cell-sub.text-warning-token")).not.toBeNull();
+  });
+});
+
 // The dashboard sends people to this list to renew and to collect. Doing
 // either from the row is the whole point of the link.
 describe("ContractsComponent — acting on the row", () => {
@@ -225,20 +280,36 @@ describe("ContractsComponent — acting on the row", () => {
   let paymentsService: jasmine.SpyObj<PaymentsService>;
   let confirmService: ConfirmService;
 
+  const plan = {
+    id: "ct1", name: "Mensuel", currency: "TND", billing_period: "monthly",
+    activity_prices: [{ activity_id: "a1", activity_name: "Yoga", activity_emoji: null, price: 100 }],
+    pack_prices: [],
+  } as never as ContractType;
+  const yearly = {
+    id: "ct2", name: "Annuel", currency: "TND", billing_period: "yearly",
+    activity_prices: [{ activity_id: "a1", activity_name: "Yoga", activity_emoji: null, price: 900 }],
+    pack_prices: [],
+  } as never as ContractType;
+  const unpriced = { id: "ct3", name: "Vide", currency: "TND", activity_prices: [], pack_prices: [] } as never as ContractType;
+
   const contract = {
     id: "m1",
-    current_period_id: "p1",
     status: "active",
     payment_status: "unpaid",
     amount_due: "100",
-    payable_period_id: null,
-    upcoming_periods: [],
+    renewed_from_id: null,
+    renewal: null,
+    renewable: true,
+    plan,
+    activity: { id: "a1", name: "Yoga", emoji: null },
+    pack: null,
+    all_access: false,
     client: { id: "cl1", full_name: "Amy Client", phone: null },
   } as never as Contract;
 
   beforeEach(() => {
     TestBed.resetTestingModule();
-    contractsService = jasmine.createSpyObj<ContractsService>("ContractsService", ["list", "renew"]);
+    contractsService = jasmine.createSpyObj<ContractsService>("ContractsService", ["list", "renew", "pause", "resume"]);
     contractsService.list.and.returnValue(
       of({ contracts: [], meta: { page: 1, per_page: 20, total: 0, total_pages: 0 }, counts: {}, plan_counts: {}, totals: { portfolio_value: 0, average_basket: 0, unpaid_value: 0, expiring_soon: 0 } })
     );
@@ -246,7 +317,7 @@ describe("ContractsComponent — acting on the row", () => {
     paymentsService = jasmine.createSpyObj<PaymentsService>("PaymentsService", ["record"]);
     paymentsService.record.and.returnValue(of({ payment: {} as never }));
     const contractTypesService = jasmine.createSpyObj<ContractTypesService>("ContractTypesService", ["list"]);
-    contractTypesService.list.and.returnValue(of({ plans: [] }));
+    contractTypesService.list.and.returnValue(of({ plans: [plan, yearly, unpriced] }));
 
     TestBed.configureTestingModule({
       imports: [ContractsComponent, TranslateModule.forRoot()],
@@ -267,63 +338,100 @@ describe("ContractsComponent — acting on the row", () => {
     fixture.detectChanges();
   });
 
-  it("settles the period in full and in cash, sending no amount of its own", async () => {
+  it("settles the contract in full and in cash, sending no amount of its own", async () => {
     await component.collect(contract);
 
     expect(paymentsService.record).toHaveBeenCalledWith({
       client_id: "cl1",
       payment_method: "cash",
-      contract_period_id: "p1",
+      contract_id: "m1",
     });
     expect(component.rowBusy()).toBeNull();
   });
 
-  it("will not collect against a contract with no current period", async () => {
-    await component.collect({ ...contract, current_period_id: null } as never);
-    expect(paymentsService.record).not.toHaveBeenCalled();
+  it("tells a renewal waiting its turn from the term in force", () => {
+    const later = new Date(Date.now() + 10 * 86_400_000).toISOString();
+    const earlier = new Date(Date.now() - 10 * 86_400_000).toISOString();
+
+    expect(component.isQueuedRenewal({ ...contract, renewed_from_id: "m0", starts_at: later } as Contract)).toBeTrue();
+    expect(component.isQueuedRenewal({ ...contract, renewed_from_id: "m0", starts_at: earlier } as Contract)).toBeFalse();
+    expect(component.isQueuedRenewal({ ...contract, starts_at: later } as Contract)).toBeFalse();
   });
 
-  // Renewing early never rewrites the running term, so the row can hold a
-  // settled term and an unpaid renewal at once. The money owed is the
-  // renewal's, and that is what the button has to collect.
-  it("collects the period still owed rather than the term in force", async () => {
-    await component.collect({ ...contract, payable_period_id: "p2" } as never);
+  it("opens the renewal on the formule the member is on, and renews it as it is", () => {
+    component.renew(contract);
 
-    expect(paymentsService.record).toHaveBeenCalledWith({
-      client_id: "cl1",
-      payment_method: "cash",
-      contract_period_id: "p2",
-    });
+    expect(component.renewing()).toBe(contract);
+    expect(component.renewPlanId()).toBe("ct1");
+    expect(component.renewItem()).toBe("activity:a1");
+    expect(component.renewSameFormule()).toBeTrue();
+
+    component.confirmRenew();
+
+    expect(contractsService.renew).toHaveBeenCalledWith("m1", {});
+    expect(component.renewing()).toBeNull();
+    expect(component.rowBusy()).toBeNull();
   });
 
-  it("reads how far a renewed contract is covered off the last period sold", () => {
-    const renewed = {
-      ...contract,
-      upcoming_periods: [
-        { id: "p2", starts_at: "2026-10-01T00:00:00Z", expires_at: "2026-11-01T00:00:00Z", final_price: "100", payment_status: "unpaid" },
-        { id: "p3", starts_at: "2026-11-01T00:00:00Z", expires_at: "2026-12-01T00:00:00Z", final_price: "100", payment_status: "unpaid" },
-      ],
-    } as never as Contract;
+  it("renews onto another formule, keeping the activity it also sells", () => {
+    component.renew(contract);
+    component.onRenewPlanChange("ct2");
 
-    expect(component.renewedThrough(renewed)).toBe("2026-12-01T00:00:00Z");
-    expect(component.renewedThrough(contract)).toBeNull();
+    expect(component.renewItem()).toBe("activity:a1");
+    expect(component.renewPrice()).toBe(900);
+
+    component.confirmRenew();
+
+    expect(contractsService.renew).toHaveBeenCalledWith("m1", { contract_type_id: "ct2", activity_id: "a1" });
   });
 
-  it("asks before renewing, and does nothing when told no", async () => {
-    const pending = component.renew(contract);
-    confirmService.resolve(false);
-    await pending;
+  it("will not renew onto a formule with no price for it", () => {
+    component.renew(contract);
+    component.onRenewPlanChange("ct3");
 
+    expect(component.renewBlocked()).toBeTrue();
+    component.confirmRenew();
     expect(contractsService.renew).not.toHaveBeenCalled();
   });
 
-  it("renews and reloads once confirmed", async () => {
-    const pending = component.renew(contract);
+  it("closes the renewal without renewing", () => {
+    component.renew(contract);
+    component.closeRenew();
+
+    expect(component.renewing()).toBeNull();
+    expect(contractsService.renew).not.toHaveBeenCalled();
+  });
+
+  it("asks before pausing, then pauses", async () => {
+    contractsService.pause.and.returnValue(of({ contract }));
+    const pending = component.togglePause({ ...contract, paused: false } as Contract);
     confirmService.resolve(true);
     await pending;
 
-    expect(contractsService.renew).toHaveBeenCalledWith("m1");
+    expect(contractsService.pause).toHaveBeenCalledWith("m1");
     expect(component.rowBusy()).toBeNull();
+  });
+
+  it("resumes straight away — giving days back needs no second thought", async () => {
+    contractsService.resume.and.returnValue(of({ contract }));
+
+    await component.togglePause({ ...contract, paused: true } as Contract);
+
+    expect(contractsService.resume).toHaveBeenCalledWith("m1");
+  });
+
+  it("downloads the signed contract and the invoice, named after the reference", () => {
+    contractsService.agreement = jasmine.createSpy().and.returnValue(of(new Blob()));
+    contractsService.receipt = jasmine.createSpy().and.returnValue(of(new Blob()));
+    const click = spyOn(HTMLAnchorElement.prototype, "click");
+    const ref = { ...contract, invoice_ref: "FAC-2026-0042" } as Contract;
+
+    component.downloadAgreement(ref);
+    component.downloadInvoice(ref);
+
+    expect(contractsService.agreement).toHaveBeenCalledWith("m1");
+    expect(contractsService.receipt).toHaveBeenCalledWith("m1");
+    expect(click).toHaveBeenCalledTimes(2);
   });
 
   it("refuses a second action while one is in flight", async () => {

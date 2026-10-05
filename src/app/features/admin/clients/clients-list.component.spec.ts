@@ -248,6 +248,7 @@ describe("ClientsListComponent", () => {
       name: "1 mois",
       active: true,
       activity_prices: [{ activity_id: "a1", activity_name: "Yoga", activity_emoji: "🧘", price: 120 }],
+      pack_prices: [{ pack_id: "k1", pack_name: "Duo", activity_names: ["Boxe", "Yoga"], price: 180 }],
     } as never;
 
     beforeEach(() => {
@@ -269,24 +270,45 @@ describe("ClientsListComponent", () => {
     });
 
     it("offers only the plans that price the chosen activity", () => {
-      component.onActivityChange("a1");
-      expect(component.plansForActivity().map((p) => p.id)).toEqual(["p1"]);
+      component.onItemChange("activity:a1");
+      expect(component.plansForItem().map((p) => p.id)).toEqual(["p1"]);
 
-      component.onActivityChange("a2");
-      expect(component.plansForActivity()).toEqual([]);
+      component.onItemChange("activity:a2");
+      expect(component.plansForItem()).toEqual([]);
+    });
+
+    it("offers the packs some plan sells, and the plans that sell the chosen one", () => {
+      expect(component.packsForSale()).toEqual([{ key: "pack:k1", label: "Duo (Boxe + Yoga)" }]);
+
+      component.onItemChange("pack:k1");
+      component.onPlanChange("p1");
+      expect(component.plansForItem().map((p) => p.id)).toEqual(["p1"]);
+      expect(component.total()).toBe(180);
+    });
+
+    it("forgets the last member's choices when the form opens again", () => {
+      component.onItemChange("activity:a1");
+      component.onPlanChange("p1");
+      component.onDiscountChange(10);
+
+      component.openCreate();
+
+      expect(component.selectedItem()).toBe("");
+      expect(component.selectedPlanId()).toBe("");
+      expect(component.discount()).toBe(0);
     });
 
     it("drops a plan that no longer prices the newly chosen activity", () => {
-      component.onActivityChange("a1");
+      component.onItemChange("activity:a1");
       component.onPlanChange("p1");
       expect(component.selectedPlanId()).toBe("p1");
 
-      component.onActivityChange("a2");
+      component.onItemChange("activity:a2");
       expect(component.selectedPlanId()).toBe("");
     });
 
     it("prices the sale from the grid and takes the discount off it", () => {
-      component.onActivityChange("a1");
+      component.onItemChange("activity:a1");
       component.onPlanChange("p1");
       expect(component.total()).toBe(120);
 
@@ -295,7 +317,7 @@ describe("ClientsListComponent", () => {
     });
 
     it("never lets a discount push the total below zero", () => {
-      component.onActivityChange("a1");
+      component.onItemChange("activity:a1");
       component.onPlanChange("p1");
       component.onDiscountChange(500);
       expect(component.total()).toBe(0);
@@ -316,7 +338,7 @@ describe("ClientsListComponent", () => {
       service.create.and.returnValue(of({ client, contract: null, payment: null }));
       component.createForm.patchValue({ first_name: "Rania", last_name: "Ferjani", phone: "20000001" });
       component.next();
-      component.onActivityChange("a1");
+      component.onItemChange("activity:a1");
       component.onPlanChange("p1");
       component.next();
       expect(component.step()).toBe(2);
@@ -327,6 +349,21 @@ describe("ClientsListComponent", () => {
       expect(subscription).toEqual(
         jasmine.objectContaining({ contract_type_id: "p1", activity_id: "a1", collect_payment: true, payment_method: "cash" })
       );
+    });
+
+    it("sends a pack in place of an activity", () => {
+      service.create.and.returnValue(of({ client, contract: null, payment: null }));
+      component.createForm.patchValue({ first_name: "Rania", last_name: "Ferjani", phone: "20000001" });
+      component.next();
+      component.onItemChange("pack:k1");
+      component.onPlanChange("p1");
+      component.next();
+
+      component.submitCreate();
+
+      const [, subscription] = service.create.calls.mostRecent().args;
+      expect(subscription).toEqual(jasmine.objectContaining({ contract_type_id: "p1", pack_id: "k1" }));
+      expect(subscription?.activity_id).toBeUndefined();
     });
 
     it("lets you step back but never jump forward", () => {

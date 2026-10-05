@@ -3,29 +3,38 @@
   <app-page-header [title]="'nav.plans' | translate" [description]="'plans.subtitle' | translate"></app-page-header>
   }
 
-  <div class="fx-toolbar plan-toolbar">
-    @if (plans().length > 0) {
+  <!-- The toolbar only once there is a list to search: an empty tab has one
+       way to create a formule, in its empty state, not two. -->
+  @if (!loading() && plans().length > 0) {
+    <div class="fx-toolbar plan-toolbar">
       <div class="fx-input-icon">
         <i class="bi bi-search"></i>
         <input type="search" class="form-control form-control-sm" [ngModel]="search()" (ngModelChange)="search.set($event)"
-               [placeholder]="'common.search' | translate" />
+               [placeholder]="'contract_types.search_placeholder' | translate" />
       </div>
-    }
-    <button type="button" class="btn btn-primary btn-sm ms-auto" (click)="openCreatePlan()"
-            [disabled]="activities().length === 0"
-            [attr.title]="activities().length === 0 ? ('contract_types.no_activities' | translate) : null">
-      <i class="bi bi-plus-lg"></i> {{ "contract_types.new" | translate }}
-    </button>
-  </div>
+      <button type="button" class="btn btn-primary btn-sm ms-auto" (click)="openCreatePlan()">
+        <i class="bi bi-plus-lg"></i> {{ "contract_types.new" | translate }}
+      </button>
+    </div>
+  }
 
   @if (loading()) {
-    <div class="d-flex justify-content-center py-5">
-      <app-spinner [size]="28" />
-    </div>
+    <div class="app-card"><div class="app-card-body"><app-skeleton variant="cards" /></div></div>
   } @else if (plans().length === 0) {
     <div class="app-card"><div class="app-card-body">
       <app-empty-state [title]="'contract_types.empty_title' | translate" [body]="'contract_types.empty_body' | translate" icon="bi-award">
-        <button type="button" class="btn btn-primary" (click)="openCreatePlan()">+ {{ "contract_types.new" | translate }}</button>
+        @if (nothingToPrice()) {
+          <!-- Says what is missing and offers it. The greyed-out button this
+               replaces gave no reason, and its twin below was clickable. -->
+          <p class="plan-needs">{{ "contract_types.no_activities" | translate }}</p>
+          <button type="button" class="btn btn-primary" (click)="requestCreate.emit('activity')">
+            <i class="bi bi-plus-lg"></i> {{ "activities.new" | translate }}
+          </button>
+        } @else {
+          <button type="button" class="btn btn-primary" (click)="openCreatePlan()">
+            <i class="bi bi-plus-lg"></i> {{ "contract_types.new" | translate }}
+          </button>
+        }
       </app-empty-state>
     </div></div>
   } @else if (filtered().length === 0) {
@@ -48,7 +57,7 @@
           }
 
           <div class="plan-chips">
-            <span class="plan-chip"><i class="bi bi-calendar3"></i> {{ ("contract_types.period_" + plan.billing_period) | translate }}</span>
+            <span class="plan-chip"><i class="bi bi-calendar3"></i> {{ ("contract_types.period_" + plan.billing_period) | translate: { days: plan.validity_days } }}</span>
             @if (plan.session_count) {
               <span class="plan-chip"><i class="bi bi-ticket-perforated"></i> {{ plan.session_count }} {{ "contract_types.sessions" | translate }}</span>
             } @else {
@@ -56,13 +65,22 @@
             }
           </div>
 
-          @if (plan.activity_prices.length === 0) {
+          @if (plan.activity_prices.length === 0 && plan.pack_prices.length === 0) {
             <p class="plan-warn"><i class="bi bi-exclamation-triangle"></i> {{ "contract_types.no_prices_yet" | translate }}</p>
           } @else {
             <ul class="plan-prices">
               @for (row of plan.activity_prices; track row.activity_id) {
                 <li>
                   <span class="plan-price-name">{{ row.activity_emoji }} {{ row.activity_name }}</span>
+                  <span class="plan-price-value">{{ row.price | money: plan.currency }}</span>
+                </li>
+              }
+              @for (row of plan.pack_prices; track row.pack_id) {
+                <li>
+                  <span class="plan-price-name">
+                    <span class="plan-pack-tag">{{ "packs.tag" | translate }}</span> {{ row.pack_name }}
+                    <small>{{ row.activity_names.join(" + ") }}</small>
+                  </span>
                   <span class="plan-price-value">{{ row.price | money: plan.currency }}</span>
                 </li>
               }
@@ -85,8 +103,8 @@
     @if (formError()) { <div class="alert alert-danger">{{ formError() }}</div> }
     <form [formGroup]="planForm" (ngSubmit)="submitPlan()" novalidate>
       <div class="mb-3">
-        <label for="mp-name">{{ "coaches.first_name" | translate }} *</label>
-        <input id="mp-name" class="form-control" formControlName="name" />
+        <label for="mp-name">{{ "contract_types.name" | translate }} *</label>
+        <input id="mp-name" class="form-control" formControlName="name" [placeholder]="'contract_types.name_placeholder' | translate" />
       </div>
       <div class="mb-3">
         <label for="mp-desc">{{ "activities.description" | translate }}</label>
@@ -96,15 +114,25 @@
         <label for="mp-period">{{ "contract_types.billing_period" | translate }} *</label>
         <select id="mp-period" class="form-select" formControlName="billing_period">
           @for (period of billingPeriods; track period) {
-            <option [value]="period">{{ ("contract_types.period_" + period) | translate }}</option>
+            <option [value]="period">
+              {{ period === "custom" ? ("contract_types.period_option_custom" | translate) : (("contract_types.period_" + period) | translate) }}
+            </option>
           }
         </select>
       </div>
+      <!-- A studio's carnet: "10 séances, valables 8 semaines". -->
+      @if (planForm.controls.billing_period.value === "custom") {
+        <div class="mb-3">
+          <label for="mp-validity">{{ "contract_types.validity_days" | translate }} *</label>
+          <input id="mp-validity" type="number" min="1" max="730" step="1" class="form-control" formControlName="validity_days" />
+          <p class="small text-muted-token mb-0">{{ "contract_types.validity_days_hint" | translate }}</p>
+        </div>
+      }
 
       <fieldset class="mb-3">
         <legend class="form-label mb-1">{{ "contract_types.activity_prices" | translate }} *</legend>
         <p class="small text-muted-token">{{ "contract_types.activity_prices_hint" | translate }}</p>
-        @if (activities().length === 0) {
+        @if (nothingToPrice()) {
           <!-- Nothing to price. Saying so beside a field that cannot be
                filled left people to discover it on submit, from a message
                asking for something this screen never offered. -->
@@ -124,6 +152,25 @@
               </div>
             }
           </div>
+
+          @if (packs().length > 0) {
+            <p class="plan-form-sub">{{ "catalogue.tab_packs" | translate }}</p>
+            <div class="fx-price-grid">
+              @for (pack of packs(); track pack.id) {
+                <div class="fx-price-grid-row">
+                  <label class="mb-0" [for]="'mp-pack-' + pack.id">
+                    {{ pack.name }}
+                    <small class="d-block text-muted-token">{{ pack.activities.map(nameOf).join(" + ") }}</small>
+                  </label>
+                  <div class="input-group input-group-sm">
+                    <input [id]="'mp-pack-' + pack.id" type="number" min="0" step="0.01" class="form-control"
+                           [value]="packPriceFor(pack.id) ?? ''" (input)="setPackPrice(pack.id, $event)"
+                           [placeholder]="'contract_types.not_offered' | translate" />
+                  </div>
+                </div>
+              }
+            </div>
+          }
         }
       </fieldset>
       <!-- One choice, not two fields that can contradict each other. A
@@ -168,7 +215,7 @@
       </div>
       <div class="d-flex justify-content-end gap-2">
         <button type="button" class="btn btn-outline-secondary" (click)="closePlanModal()">{{ "common.cancel" | translate }}</button>
-        <button type="submit" class="btn btn-primary" [disabled]="saving() || activities().length === 0">
+        <button type="submit" class="btn btn-primary" [disabled]="saving() || nothingToPrice()">
           {{ (saving() ? "common.saving" : "common.save") | translate }}
         </button>
       </div>

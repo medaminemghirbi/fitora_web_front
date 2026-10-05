@@ -71,7 +71,7 @@ export class SuperadminCompaniesService {
     return this.http.patch<{ company: SuperadminCompany }>(`${API_BASE_URL}/superadmin/companies/${id}/subscription`, payload);
   }
 
-  // Tenant-wide display settings — currency + app language — that a Gymly
+  // Tenant-wide display settings — currency + app language — that a Fitora
   // superadmin manages on the company's behalf.
   updateSettings(id: string, settings: { currency?: string; locale?: string }): Observable<{ company: SuperadminCompany }> {
     return this.http.patch<{ company: SuperadminCompany }>(`${API_BASE_URL}/superadmin/companies/${id}/settings`, { company: settings });

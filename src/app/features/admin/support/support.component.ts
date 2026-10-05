@@ -13,7 +13,7 @@ const MAX_FILE_SIZE = 100 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf", "video/mp4", "video/quicktime", "video/webm"];
 
 /**
- * Writing to Gymly: a problem report with optional attachments, plus the
+ * Writing to Fitora: a problem report with optional attachments, plus the
  * gym's own history of what it has already asked.
  *
  * It used to be a tab on the subscription page, which is why the navbar's

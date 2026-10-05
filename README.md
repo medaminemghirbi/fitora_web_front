@@ -1,8 +1,8 @@
-# Gymly — Frontend
+# Fitora — Frontend
 
-**Gymly** is a gym-management SaaS: scheduling, memberships, payments, staff and payroll
-for gyms and fitness studios. This repository is the **Gymly frontend**, built with
-**Angular** and talking to the Gymly backend API (a separate repository).
+**Fitora** is a gym-management SaaS: scheduling, memberships, payments, staff and payroll
+for gyms and fitness studios. This repository is the **Fitora frontend**, built with
+**Angular** and talking to the Fitora backend API (a separate repository).
 
 ---
 
@@ -197,7 +197,7 @@ The exact structure may evolve as the application grows.
 
 ## 🔐 Authentication
 
-Gymly uses an authenticated API architecture.
+Fitora uses an authenticated API architecture.
 
 Frontend responsibilities include:
 
@@ -214,7 +214,7 @@ Authentication logic is centralized in `core/auth`, `core/guards`, and `core/int
 
 ## 🔌 Backend
 
-The frontend communicates with the **Gymly backend API**, a separate repository
+The frontend communicates with the **Fitora backend API**, a separate repository
 (its own git history, deployed independently).
 
 The backend is responsible for:
@@ -248,7 +248,7 @@ dist/
 
 ### SPA Routing
 
-Because Gymly is an Angular Single Page Application, the web server must redirect unknown
+Because Fitora is an Angular Single Page Application, the web server must redirect unknown
 routes to:
 
 ```text
@@ -303,4 +303,4 @@ Before opening a pull request:
 
 This project is proprietary software.
 
-© Gymly. All rights reserved.
+© Fitora. All rights reserved.

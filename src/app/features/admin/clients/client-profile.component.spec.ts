@@ -39,22 +39,28 @@ describe("ClientProfileComponent", () => {
 
   const contractType: ContractType = {
     id: "ct1", company_id: "1", name: "Basic", description: null, currency: "TND",
-    billing_period: "monthly", duration_days: 30, session_count: 8, unlimited_bookings: false,
+    billing_period: "monthly", duration_days: 30, validity_days: null, session_count: 8, unlimited_bookings: false,
     booking_limit: null, priority_booking: false, color: "#000", active: true, activity_ids: [],
     activity_prices: [{ activity_id: "a1", activity_name: "Yoga", activity_emoji: "🧘", price: 100 }],
+    pack_prices: [],
+  };
+  // Sells one activity and one pack, so nothing is picked for the desk.
+  const withPack: ContractType = {
+    ...contractType, id: "ct2", name: "Duo",
+    pack_prices: [{ pack_id: "p1", pack_name: "Duo", activity_names: ["Boxe", "Yoga"], price: 150 }],
   };
   const activity: Activity = {
     id: "a1", company_id: "1", name: "Yoga", emoji: "🧘", description: null,
     session_format: "collective", duration: 60, capacity: 20, active: true,
   } as never;
   const contract: Contract = {
-    id: "m1", current_period_id: "p1", status: "active",
+    id: "m1", invoice_ref: "FAC-2026-0001", status: "active", paused: false, paused_at: null,
     starts_at: new Date(Date.now() - 5 * 86_400_000).toISOString(),
     expires_at: new Date(Date.now() + 25 * 86_400_000).toISOString(),
     remaining_bookings: 5, auto_renew: true, discount: "0", base_price: "100", final_price: "100",
     payment_status: "paid", amount_due: "0", plan: contractType,
     activity: { id: activity.id, name: activity.name, emoji: activity.emoji },
-    all_access: false, upcoming_periods: [], payable_period_id: null,
+    all_access: false, renewed_from_id: null, renewal: null, renewable: true,
     activity_label: activity.name,
     client: { id: "cl1", full_name: "Amy", phone: null },
   };
@@ -76,18 +82,21 @@ describe("ClientProfileComponent", () => {
     joined_at: "2026-01-01",
     current_contract: contract, date_of_birth: null, gender: null, address: null,
     emergency_contact_name: null, emergency_contact_phone: null, notes: "some notes",
+    health_notes: null, waiver_signed_on: null,
     outstanding_balance: "0", attendance_rate: null, last_visit_at: null,
     identity_locked: false, invitation_pending: false, invited_at: null,
   };
 
   // Whether the account's plan opens the member app (Pro, or a trial).
   const memberApp = signal(true);
+  const features = signal<Record<string, boolean>>({ drop_in: true });
 
   beforeEach(async () => {
     memberApp.set(true);
+    features.set({ drop_in: true });
     clientsService = jasmine.createSpyObj<ClientsService>("ClientsService", ["get", "update", "invite", "remove"]);
     contractTypesService = jasmine.createSpyObj<ContractTypesService>("ContractTypesService", ["list"]);
-    contractsService = jasmine.createSpyObj<ContractsService>("ContractsService", ["create", "update", "renew", "cancel", "destroy", "receipt"]);
+    contractsService = jasmine.createSpyObj<ContractsService>("ContractsService", ["create", "update", "renew", "cancel", "destroy", "receipt", "pause", "resume"]);
     activitiesService = jasmine.createSpyObj<ActivitiesService>("ActivitiesService", ["list"]);
     sessionsService = jasmine.createSpyObj<SessionsService>("SessionsService", ["list"]);
     bookingsService = jasmine.createSpyObj<BookingsService>("BookingsService", ["create", "cancel"]);
@@ -95,7 +104,7 @@ describe("ClientProfileComponent", () => {
     attendanceService = jasmine.createSpyObj<AttendanceService>("AttendanceService", ["mark"]);
 
     clientsService.get.and.returnValue(of({ client, contracts: [contract], bookings: [booking], payments: [payment] }));
-    contractTypesService.list.and.returnValue(of({ plans: [contractType] }));
+    contractTypesService.list.and.returnValue(of({ plans: [contractType, withPack] }));
     activitiesService.list.and.returnValue(of({ activities: [activity] }));
     // Default stub — the booking form's activity/date valueChanges are wired
     // up in ngOnInit, so any incidental patch of those fields (e.g. in
@@ -113,7 +122,7 @@ describe("ClientProfileComponent", () => {
         { provide: BookingsService, useValue: bookingsService },
         { provide: PaymentsService, useValue: paymentsService },
         { provide: AttendanceService, useValue: attendanceService },
-        { provide: ConfigurationService, useValue: { memberApp } },
+        { provide: ConfigurationService, useValue: { memberApp, features } },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: "cl1" }) } } },
       ],
     }).compileComponents();
@@ -128,7 +137,7 @@ describe("ClientProfileComponent", () => {
   it("loads the client bundle, contract types and activities on init", () => {
     expect(component.client()).toEqual(client);
     expect(component.contracts()).toEqual([contract]);
-    expect(component.contractTypes().length).toBe(1);
+    expect(component.contractTypes().length).toBe(2);
     expect(component.activities().length).toBe(1);
     expect(component.contractProgress()).not.toBeNull();
   });
@@ -221,27 +230,46 @@ describe("ClientProfileComponent", () => {
   it("selectedPlan / contractFormTotal reflect the chosen plan, activity and discount", () => {
     expect(component.selectedPlan()).toBeNull();
     expect(component.contractFormTotal()).toBe(0);
-    component.contractForm.patchValue({ contract_type_id: "ct1", activity_id: "a1", discount: 20 });
+    component.contractForm.patchValue({ contract_type_id: "ct1", item: "activity:a1", discount: 20 });
     expect(component.selectedPlan()).toEqual(contractType);
     expect(component.contractFormTotal()).toBe(80);
   });
 
   it("contractFormTotal clamps at 0", () => {
-    component.contractForm.patchValue({ contract_type_id: "ct1", activity_id: "a1", discount: 500 });
+    component.contractForm.patchValue({ contract_type_id: "ct1", item: "activity:a1", discount: 500 });
     expect(component.contractFormTotal()).toBe(0);
   });
 
-  it("selectedActivityPrice is null until both the plan and the activity are chosen", () => {
-    component.contractForm.patchValue({ contract_type_id: "ct1" });
-    expect(component.selectedActivityPrice()).toBeNull();
+  it("selectedItemPrice is null until the plan and what it is sold for are chosen", () => {
+    expect(component.selectedItemPrice()).toBeNull();
 
-    component.contractForm.patchValue({ activity_id: "a1" });
-    expect(component.selectedActivityPrice()).toBe(100);
+    component.contractForm.patchValue({ contract_type_id: "ct2" });
+    expect(component.selectedItemPrice()).toBeNull();
+
+    component.contractForm.patchValue({ item: "activity:a1" });
+    expect(component.selectedItemPrice()).toBe(100);
   });
 
-  it("selectedActivityPrice is null for an activity the plan has no tariff for", () => {
-    component.contractForm.patchValue({ contract_type_id: "ct1", activity_id: "a-unpriced" });
-    expect(component.selectedActivityPrice()).toBeNull();
+  it("picks the only thing a formule sells", () => {
+    component.contractForm.patchValue({ contract_type_id: "ct1" });
+    expect(component.contractForm.controls.item.value).toBe("activity:a1");
+  });
+
+  it("drops a pick the new formule does not sell", () => {
+    component.contractForm.patchValue({ contract_type_id: "ct2", item: "pack:p1" });
+    component.contractForm.patchValue({ contract_type_id: "ct1" });
+    expect(component.contractForm.controls.item.value).toBe("activity:a1");
+  });
+
+  it("lists a formule's packs after its activities", () => {
+    component.contractForm.patchValue({ contract_type_id: "ct2" });
+    expect(component.saleItems().map((i) => i.key)).toEqual(["activity:a1", "pack:p1"]);
+    expect(component.saleItems()[1].label).toBe("Duo (Boxe + Yoga)");
+  });
+
+  it("selectedItemPrice is null for an activity the plan has no tariff for", () => {
+    component.contractForm.patchValue({ contract_type_id: "ct1", item: "activity:a-unpriced" });
+    expect(component.selectedItemPrice()).toBeNull();
     expect(component.contractFormTotal()).toBe(0);
   });
 
@@ -263,13 +291,13 @@ describe("ClientProfileComponent", () => {
     });
 
     it("submitContract does nothing when a plan is chosen but no activity is", () => {
-      component.contractForm.patchValue({ contract_type_id: "ct1" });
+      component.contractForm.patchValue({ contract_type_id: "ct2" });
       component.submitContract();
       expect(contractsService.create).not.toHaveBeenCalled();
     });
 
     it("submitContract creates the contract and reloads", () => {
-      component.contractForm.patchValue({ contract_type_id: "ct1", activity_id: "a1" });
+      component.contractForm.patchValue({ contract_type_id: "ct1", item: "activity:a1" });
       contractsService.create.and.returnValue(of({ contract, payment: null }));
       component.submitContract();
       expect(contractsService.create).toHaveBeenCalledWith(jasmine.objectContaining({ contract_type_id: "ct1", activity_id: "a1" }));
@@ -277,22 +305,31 @@ describe("ClientProfileComponent", () => {
       expect(toast.toasts()[0].kind).toBe("success");
     });
 
+    it("submitContract sells a pack in place of an activity", () => {
+      component.contractForm.patchValue({ contract_type_id: "ct2", item: "pack:p1" });
+      contractsService.create.and.returnValue(of({ contract, payment: null }));
+      component.submitContract();
+      const payload = contractsService.create.calls.mostRecent().args[0];
+      expect(payload).toEqual(jasmine.objectContaining({ contract_type_id: "ct2", pack_id: "p1" }));
+      expect(payload.activity_id).toBeUndefined();
+    });
+
     it("submitContract shows the backend error on failure", () => {
-      component.contractForm.patchValue({ contract_type_id: "ct1", activity_id: "a1" });
+      component.contractForm.patchValue({ contract_type_id: "ct1", item: "activity:a1" });
       contractsService.create.and.returnValue(throwError(() => new Error("nope")));
       component.submitContract();
       expect(component.formError()).toBeTruthy();
     });
 
     it("submitContract collects payment immediately when collect_payment is checked", () => {
-      component.contractForm.patchValue({ contract_type_id: "ct1", activity_id: "a1", collect_payment: true });
+      component.contractForm.patchValue({ contract_type_id: "ct1", item: "activity:a1", collect_payment: true });
       contractsService.create.and.returnValue(of({ contract, payment: null }));
       component.submitContract();
       expect(contractsService.create).toHaveBeenCalledWith(jasmine.objectContaining({ collect_payment: true, payment_method: "cash" }));
     });
 
     it("contractFormTotal uses the activity's full tariff when no discount is entered", () => {
-      component.contractForm.patchValue({ contract_type_id: "ct1", activity_id: "a1" });
+      component.contractForm.patchValue({ contract_type_id: "ct1", item: "activity:a1" });
       expect(component.contractFormTotal()).toBe(100);
     });
 
@@ -350,11 +387,6 @@ describe("ClientProfileComponent", () => {
   });
 
   describe("contract actions", () => {
-    it("collectPayment does nothing without a current period", async () => {
-      await component.collectPayment({ ...contract, current_period_id: null });
-      expect(paymentsService.record).not.toHaveBeenCalled();
-    });
-
     it("collectPayment does nothing when declined", async () => {
       spyOn(confirmService, "ask").and.resolveTo(false);
       await component.collectPayment(contract);
@@ -365,7 +397,7 @@ describe("ClientProfileComponent", () => {
       spyOn(confirmService, "ask").and.resolveTo(true);
       paymentsService.record.and.returnValue(of({ payment }));
       await component.collectPayment(contract);
-      expect(paymentsService.record).toHaveBeenCalledWith({ client_id: "cl1", payment_method: "cash", contract_period_id: "p1" });
+      expect(paymentsService.record).toHaveBeenCalledWith({ client_id: "cl1", payment_method: "cash", contract_id: "m1" });
       expect(toast.toasts()[0].kind).toBe("success");
     });
 
@@ -391,6 +423,12 @@ describe("ClientProfileComponent", () => {
     it("renewContract does nothing when declined", async () => {
       spyOn(confirmService, "ask").and.resolveTo(false);
       await component.renewContract(contract);
+      expect(contractsService.renew).not.toHaveBeenCalled();
+    });
+
+    it("renewContract does nothing for a term that cannot be renewed yet", async () => {
+      spyOn(confirmService, "ask").and.resolveTo(true);
+      await component.renewContract({ ...contract, renewable: false });
       expect(contractsService.renew).not.toHaveBeenCalled();
     });
 
@@ -482,7 +520,7 @@ describe("ClientProfileComponent", () => {
     });
 
     it("submitBooking creates the booking and reloads", () => {
-      component.bookingForm.setValue({ activity_id: "a1", date: "2026-01-05", session_id: "s1" });
+      component.bookingForm.setValue({ activity_id: "a1", date: "2026-01-05", session_id: "s1", kind: "contract" });
       bookingsService.create.and.returnValue(of({ booking }));
       component.submitBooking();
       expect(component.bookingModalOpen()).toBe(false);
@@ -490,7 +528,7 @@ describe("ClientProfileComponent", () => {
     });
 
     it("submitBooking shows the backend error on failure", () => {
-      component.bookingForm.setValue({ activity_id: "a1", date: "2026-01-05", session_id: "s1" });
+      component.bookingForm.setValue({ activity_id: "a1", date: "2026-01-05", session_id: "s1", kind: "contract" });
       bookingsService.create.and.returnValue(throwError(() => new Error("nope")));
       component.submitBooking();
       expect(component.formError()).toBeTruthy();
@@ -525,6 +563,15 @@ describe("ClientProfileComponent", () => {
       expect(component.paymentPayableOptions().length).toBe(1);
     });
 
+    it("openPaymentModal offers each contract still owed — a queued renewal is a contract of its own", () => {
+      component.bookings.set([]);
+      component.contracts.set([{ ...contract, id: "m2", amount_due: "100" }, contract]);
+      component.openPaymentModal();
+      expect(component.paymentPayableOptions()).toEqual([
+        jasmine.objectContaining({ kind: "contract", id: "m2", amountDue: 100 }),
+      ]);
+    });
+
     it("closePaymentModal closes it", () => {
       component.paymentModalOpen.set(true);
       component.closePaymentModal();
@@ -541,7 +588,7 @@ describe("ClientProfileComponent", () => {
       paymentsService.record.and.returnValue(of({ payment }));
       component.submitPayment();
       expect(paymentsService.record).toHaveBeenCalledWith({
-        client_id: "cl1", payment_method: "cash", notes: undefined, contract_period_id: undefined, booking_id: "b1",
+        client_id: "cl1", payment_method: "cash", notes: undefined, contract_id: undefined, booking_id: "b1",
       });
       expect(component.paymentModalOpen()).toBe(false);
     });
@@ -558,7 +605,7 @@ describe("ClientProfileComponent", () => {
       paymentsService.record.and.returnValue(of({ payment }));
       component.submitPayment();
       expect(paymentsService.record).toHaveBeenCalledWith({
-        client_id: "cl1", payment_method: "cash", notes: "cash tip", contract_period_id: "p1", booking_id: undefined,
+        client_id: "cl1", payment_method: "cash", notes: "cash tip", contract_id: "p1", booking_id: undefined,
       });
     });
   });
@@ -665,6 +712,82 @@ describe("ClientProfileComponent", () => {
       await component.removeMember();
 
       expect(toast.toasts()[0].kind).toBe("error");
+    });
+  });
+
+  describe("the health file", () => {
+    it("saves contraindications and the waiver date on this gym's copy", () => {
+      clientsService.update.and.returnValue(of({ client }));
+      component.openHealthModal();
+      component.healthForm.setValue({ health_notes: "  Pacemaker  ", waiver_signed_on: "2026-10-01" });
+
+      component.submitHealth();
+
+      expect(clientsService.update).toHaveBeenCalledWith("cl1", { health_notes: "Pacemaker", waiver_signed_on: "2026-10-01" });
+      expect(component.healthModalOpen()).toBe(false);
+    });
+
+    it("clears both fields with nulls rather than empty strings", () => {
+      clientsService.update.and.returnValue(of({ client }));
+      component.healthForm.setValue({ health_notes: " ", waiver_signed_on: "" });
+
+      component.submitHealth();
+
+      expect(clientsService.update).toHaveBeenCalledWith("cl1", { health_notes: null, waiver_signed_on: null });
+    });
+
+    it("flags a missing declaration on the profile", () => {
+      expect(fixture.nativeElement.querySelector(".prof-health-waiver.is-missing")).toBeTruthy();
+    });
+  });
+
+  describe("booking someone with no contract", () => {
+    it("starts from the trial when the member has nothing to book against", () => {
+      component.client.set({ ...client, current_contract: null });
+      component.openBookingModal();
+      expect(component.bookingForm.controls.kind.value).toBe("trial");
+    });
+
+    it("starts from the contract when one covers them", () => {
+      component.openBookingModal();
+      expect(component.bookingForm.controls.kind.value).toBe("contract");
+    });
+
+    it("never offers a trial when the gym turned drop-ins off", () => {
+      features.set({ drop_in: false });
+      component.client.set({ ...client, current_contract: null });
+      component.openBookingModal();
+      expect(component.bookingForm.controls.kind.value).toBe("contract");
+    });
+
+    it("sends the kind with the booking", () => {
+      component.bookingForm.setValue({ activity_id: "a1", date: "2026-01-05", session_id: "s1", kind: "drop_in" });
+      bookingsService.create.and.returnValue(of({ booking }));
+
+      component.submitBooking();
+
+      expect(bookingsService.create).toHaveBeenCalledWith("cl1", "s1", "drop_in");
+    });
+  });
+
+  describe("pausing a membership", () => {
+    it("pauses after a confirmation", async () => {
+      spyOn(confirmService, "ask").and.resolveTo(true);
+      contractsService.pause.and.returnValue(of({ contract: { ...contract, paused: true } }));
+
+      await component.togglePause(contract);
+
+      expect(contractsService.pause).toHaveBeenCalledWith("m1");
+    });
+
+    it("resumes without asking", async () => {
+      const ask = spyOn(confirmService, "ask");
+      contractsService.resume.and.returnValue(of({ contract }));
+
+      await component.togglePause({ ...contract, paused: true });
+
+      expect(ask).not.toHaveBeenCalled();
+      expect(contractsService.resume).toHaveBeenCalledWith("m1");
     });
   });
 });

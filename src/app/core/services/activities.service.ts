@@ -24,6 +24,11 @@ export class ActivitiesService {
     return this.http.post<{ activity: Activity }>(`${API_BASE_URL}/activities`, { activity: payload });
   }
 
+  /** Adds activities from the catalogue — each a copy the gym then owns. */
+  adopt(templateIds: string[]): Observable<{ activities: Activity[] }> {
+    return this.http.post<{ activities: Activity[] }>(`${API_BASE_URL}/activities/adopt`, { activity_template_ids: templateIds });
+  }
+
   update(id: string, payload: ActivityPayload): Observable<{ activity: Activity }> {
     return this.http.patch<{ activity: Activity }>(`${API_BASE_URL}/activities/${id}`, { activity: payload });
   }

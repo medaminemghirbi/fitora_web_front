@@ -70,7 +70,7 @@ export class DataExchangeComponent {
     this.dataExchange.template(entity).subscribe({
       next: (blob) => {
         this.downloadingTemplate.set(false);
-        downloadBlob(blob, `gymly-${entity}-modele.csv`);
+        downloadBlob(blob, `fitora-${entity}-modele.csv`);
       },
       error: () => {
         this.downloadingTemplate.set(false);
@@ -85,7 +85,7 @@ export class DataExchangeComponent {
     this.dataExchange.export(entity).subscribe({
       next: (blob) => {
         this.exporting.set(false);
-        downloadBlob(blob, `gymly-${entity}-export.csv`);
+        downloadBlob(blob, `fitora-${entity}-export.csv`);
       },
       error: () => {
         this.exporting.set(false);

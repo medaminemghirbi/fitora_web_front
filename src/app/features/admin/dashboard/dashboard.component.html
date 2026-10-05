@@ -133,7 +133,7 @@
 
               @if (hasEnded(item)) {
                 <span class="fx-muted dash-day-done">
-                  {{ "dashboard.session_done" | translate: { count: item.confirmed_count } }}
+                  {{ "dashboard.session_done" | translate: { count: item.attended_count ?? item.confirmed_count } }}
                 </span>
               } @else {
                 <span class="dash-day-bar d-none d-sm-inline-block" [attr.aria-label]="item.confirmed_count + '/' + item.capacity">

@@ -292,29 +292,38 @@
       }
     }
 
-    <!-- 2 — what they are buying. Activity first, because it decides which
-         plans exist and what they cost. -->
+    <!-- 2 — what they are buying. Activity (or pack) first, because it
+         decides which plans exist and what they cost. -->
     @if (step() === 1) {
       <div class="mb-3">
-        <label for="cl-activity">{{ "clients.abo_activity" | translate }}</label>
-        <select id="cl-activity" class="form-select" [value]="selectedActivityId()" (change)="onActivityChange($any($event.target).value)">
+        <label for="cl-activity">{{ "clients.abo_activity_or_pack" | translate }}</label>
+        <select id="cl-activity" class="form-select" [value]="selectedItem()" (change)="onItemChange($any($event.target).value)">
           <option value="">{{ "clients.no_subscription_yet" | translate }}</option>
-          @for (a of activities(); track a.id) {
-            <option [value]="a.id">{{ a.emoji ? a.emoji + " " : "" }}{{ a.name }}</option>
+          <optgroup [label]="'nav.activities' | translate">
+            @for (a of activities(); track a.id) {
+              <option [value]="'activity:' + a.id">{{ a.emoji ? a.emoji + " " : "" }}{{ a.name }}</option>
+            }
+          </optgroup>
+          @if (packsForSale().length > 0) {
+            <optgroup [label]="'catalogue.tab_packs' | translate">
+              @for (pack of packsForSale(); track pack.key) {
+                <option [value]="pack.key">{{ pack.label }}</option>
+              }
+            </optgroup>
           }
         </select>
       </div>
 
-      @if (selectedActivityId()) {
+      @if (selectedItem()) {
         <div class="mb-3">
           <label for="cl-plan">{{ "clients.abo_formula" | translate }}</label>
           <select id="cl-plan" class="form-select" [value]="selectedPlanId()" (change)="onPlanChange($any($event.target).value)">
             <option value="">—</option>
-            @for (p of plansForActivity(); track p.id) {
+            @for (p of plansForItem(); track p.id) {
               <option [value]="p.id">{{ p.name }}</option>
             }
           </select>
-          @if (plansForActivity().length === 0) {
+          @if (plansForItem().length === 0) {
             <div class="form-text text-warning">{{ "clients.no_plan_for_activity" | translate }}</div>
           }
         </div>

@@ -1,0 +1,124 @@
+<div class="pg-head">
+  <p class="pg-hint">
+    <i class="bi bi-pencil-square" aria-hidden="true"></i>
+    {{ "catalogue.grid_hint" | translate: { currency: currency() } }}
+  </p>
+  <div class="pg-actions">
+    @if (store.packsEnabled()) {
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="requestCreate.emit('pack')" [disabled]="activities().length < 2">
+        <i class="bi bi-collection"></i> {{ "packs.new" | translate }}
+      </button>
+    }
+    <button type="button" class="btn btn-primary btn-sm" (click)="requestCreate.emit('plan')">
+      <i class="bi bi-plus-lg"></i> {{ "contract_types.new" | translate }}
+    </button>
+  </div>
+</div>
+
+<div class="app-card pg-card">
+  <div class="pg-scroll">
+    <table class="pg">
+      <thead>
+        <tr>
+          <th scope="col" class="pg-corner">{{ "catalogue.grid_corner" | translate }}</th>
+          @for (plan of plans(); track plan.id) {
+            <th scope="col" class="pg-plan" [style.--plan-color]="plan.color">
+              <span class="pg-plan-name">{{ plan.name }}</span>
+              <span class="pg-plan-meta">
+                {{ ("catalogue.length_" + plan.billing_period) | translate: { days: plan.validity_days } }} ·
+                @if (plan.session_count) {
+                  {{ plan.session_count }} {{ "contract_types.sessions" | translate }}
+                } @else {
+                  {{ "catalogue.unlimited_short" | translate }}
+                }
+              </span>
+            </th>
+          }
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr class="pg-group">
+          <th scope="rowgroup" [attr.colspan]="plans().length + 1">{{ "nav.activities" | translate }}</th>
+        </tr>
+        @for (activity of activities(); track activity.id) {
+          <tr>
+            <th scope="row" class="pg-row">
+              <span class="pg-row-name">
+                <span class="pg-emoji" aria-hidden="true">{{ activity.emoji || "•" }}</span>
+                {{ activity.name }}
+              </span>
+              @if (soldIn("activity", activity.id) === 0) {
+                <span class="pg-unsold">{{ "catalogue.not_sold" | translate }}</span>
+              }
+            </th>
+            @for (plan of plans(); track plan.id) {
+              <td class="pg-cell" [class.is-saving]="isSaving(plan, 'activity', activity.id)" [class.is-saved]="isSaved(plan, 'activity', activity.id)"
+                  [class.is-empty]="priceOf(plan, 'activity', activity.id) === null">
+                <input type="text" inputmode="decimal" class="pg-input"
+                       [value]="display(priceOf(plan, 'activity', activity.id))"
+                       [placeholder]="'—'"
+                       [attr.aria-label]="activity.name + ' — ' + plan.name"
+                       (keydown)="onKey($event, plan, 'activity', activity.id)"
+                       (blur)="commit($event, plan, 'activity', activity.id)" />
+                @if (isSaved(plan, 'activity', activity.id)) { <i class="bi bi-check-lg pg-tick" aria-hidden="true"></i> }
+              </td>
+            }
+          </tr>
+        }
+
+        <!-- Packs only exist for a gym that turned them on (Settings). -->
+        @if (store.packsEnabled()) {
+          <tr class="pg-group">
+            <th scope="rowgroup" [attr.colspan]="plans().length + 1">{{ "catalogue.tab_packs" | translate }}</th>
+          </tr>
+          @for (pack of packs(); track pack.id) {
+            <tr>
+              <th scope="row" class="pg-row">
+                <span class="pg-row-name">
+                  <span class="pg-emoji" aria-hidden="true"><i class="bi bi-collection"></i></span>
+                  {{ pack.name }}
+                </span>
+                <span class="pg-row-sub">
+                  @for (a of pack.activities; track a.id; let last = $last) {
+                    {{ a.emoji ? a.emoji + " " : "" }}{{ a.name }}@if (!last) { + }
+                  }
+                </span>
+                @if (soldIn("pack", pack.id) === 0) {
+                  <span class="pg-unsold">{{ "catalogue.not_sold" | translate }}</span>
+                }
+              </th>
+              @for (plan of plans(); track plan.id) {
+                <td class="pg-cell" [class.is-saving]="isSaving(plan, 'pack', pack.id)" [class.is-saved]="isSaved(plan, 'pack', pack.id)"
+                    [class.is-empty]="priceOf(plan, 'pack', pack.id) === null">
+                  <input type="text" inputmode="decimal" class="pg-input"
+                         [value]="display(priceOf(plan, 'pack', pack.id))"
+                         [placeholder]="'—'"
+                         [attr.aria-label]="pack.name + ' — ' + plan.name"
+                         (keydown)="onKey($event, plan, 'pack', pack.id)"
+                         (blur)="commit($event, plan, 'pack', pack.id)" />
+                  @if (isSaved(plan, 'pack', pack.id)) { <i class="bi bi-check-lg pg-tick" aria-hidden="true"></i> }
+                </td>
+              }
+            </tr>
+          } @empty {
+            <!-- Said here rather than on a tab nobody has opened yet: this is
+                 where a gym teaching several disciplines notices it needs one. -->
+            <tr class="pg-nopack">
+              <td [attr.colspan]="plans().length + 1">
+                <span>{{ "catalogue.grid_no_pack" | translate }}</span>
+                @if (activities().length >= 2) {
+                  <button type="button" class="btn btn-link btn-sm p-0" (click)="requestCreate.emit('pack')">{{ "packs.new" | translate }}</button>
+                }
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+@if (hiddenPlans() > 0) {
+  <p class="pg-foot">{{ "catalogue.grid_hidden_plans" | translate: { count: hiddenPlans() } }}</p>
+}

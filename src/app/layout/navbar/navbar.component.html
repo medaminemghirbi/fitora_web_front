@@ -108,11 +108,28 @@
                 <strong>{{ "nav.switch_company" | translate }}</strong>
               </div>
               @for (c of companies; track c.id) {
-                <button type="button" class="dropdown-item-custom" [class.is-active]="c.active" (click)="switchCompany(c.id)">
+                <button type="button" class="dropdown-item-custom app-company-switcher-item" [class.is-active]="c.active"
+                        [disabled]="!c.active && !canSwitch()" (click)="switchCompany(c.id)">
                   @if (c.logo_url) { <img [src]="c.logo_url" alt="" class="app-company-switcher-logo" /> } @else { <i class="bi bi-building"></i> }
-                  <span>{{ c.name }}</span>
-                  @if (c.active) { <i class="bi bi-check-lg ms-auto"></i> }
+                  <span class="app-company-switcher-name">{{ c.name }}</span>
+                  @if (c.active) {
+                    <i class="bi bi-check-lg ms-auto"></i>
+                  } @else if (!canSwitch()) {
+                    <i class="bi bi-lock ms-auto" aria-hidden="true"></i>
+                  }
                 </button>
+              }
+              <!-- Several salles, but not on Pro: they are listed, not reachable. -->
+              @if (switchLocked()) {
+                @if (isAdmin()) {
+                  <a routerLink="/admin/subscription" class="app-company-switcher-locked" (click)="companySwitcherOpen.set(false)">
+                    <i class="bi bi-stars" aria-hidden="true"></i> {{ "nav.switch_needs_pro" | translate }}
+                  </a>
+                } @else {
+                  <p class="app-company-switcher-locked">
+                    <i class="bi bi-lock" aria-hidden="true"></i> {{ "nav.switch_needs_pro_staff" | translate }}
+                  </p>
+                }
               }
               @if (isAdmin()) {
                 <a routerLink="/admin/salles" class="dropdown-item-custom app-company-switcher-manage" (click)="companySwitcherOpen.set(false)">
@@ -156,10 +173,26 @@
       @if (switchableCompanies(); as companies) {
         <div class="app-navbar-m-group d-md-none">{{ "nav.switch_company" | translate }}</div>
         @for (c of companies; track c.id) {
-          <button type="button" class="app-navbar-m-item d-md-none" [class.is-active]="c.active" [disabled]="switching()" (click)="switchCompany(c.id)">
+          <button type="button" class="app-navbar-m-item d-md-none" [class.is-active]="c.active"
+                  [disabled]="switching() || (!c.active && !canSwitch())" (click)="switchCompany(c.id)">
             <i class="bi bi-building"></i> {{ c.name }}
-            @if (c.active) { <i class="bi bi-check-lg ms-auto"></i> }
+            @if (c.active) {
+              <i class="bi bi-check-lg ms-auto"></i>
+            } @else if (!canSwitch()) {
+              <i class="bi bi-lock ms-auto" aria-hidden="true"></i>
+            }
           </button>
+        }
+        @if (switchLocked()) {
+          @if (isAdmin()) {
+            <a routerLink="/admin/subscription" class="app-navbar-m-item app-company-switcher-locked d-md-none">
+              <i class="bi bi-stars" aria-hidden="true"></i> {{ "nav.switch_needs_pro" | translate }}
+            </a>
+          } @else {
+            <p class="app-company-switcher-locked d-md-none">
+              <i class="bi bi-lock" aria-hidden="true"></i> {{ "nav.switch_needs_pro_staff" | translate }}
+            </p>
+          }
         }
       }
       @if (dashboardItem) {

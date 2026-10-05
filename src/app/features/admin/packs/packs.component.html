@@ -1,0 +1,174 @@
+<div class="fx-stack">
+  @if (!loading() && !error() && packs().length > 0) {
+    <div class="fx-toolbar pk-toolbar">
+      <div class="fx-input-icon">
+        <i class="bi bi-search"></i>
+        <input type="search" class="form-control form-control-sm" [ngModel]="search()" (ngModelChange)="search.set($event)"
+               [placeholder]="'packs.search_placeholder' | translate" />
+      </div>
+      <button type="button" class="btn btn-primary btn-sm ms-auto" (click)="openCreate()" [disabled]="!canCreate()">
+        <i class="bi bi-plus-lg"></i> {{ "packs.new" | translate }}
+      </button>
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="app-card"><div class="app-card-body"><app-skeleton variant="cards" /></div></div>
+  } @else if (error()) {
+    <div class="app-card"><div class="app-card-body"><app-error-state (retry)="store.reload()" /></div></div>
+  } @else if (packs().length === 0) {
+    <div class="app-card"><div class="app-card-body">
+      <app-empty-state [title]="'packs.empty_title' | translate" [body]="'packs.empty_body' | translate" icon="bi-collection">
+        @if (canCreate()) {
+          <button type="button" class="btn btn-primary" (click)="openCreate()">
+            <i class="bi bi-plus-lg"></i> {{ "packs.new" | translate }}
+          </button>
+        } @else {
+          <!-- Says what is missing and offers it, rather than a greyed-out
+               button that leaves people guessing. -->
+          <p class="pk-needs">{{ "packs.needs_two" | translate }}</p>
+          <button type="button" class="btn btn-outline-secondary" (click)="requestCreate.emit('activity')">
+            <i class="bi bi-plus-lg"></i> {{ "activities.new" | translate }}
+          </button>
+        }
+      </app-empty-state>
+    </div></div>
+  } @else if (filtered().length === 0) {
+    <div class="app-card"><div class="app-card-body">
+      <app-empty-state [title]="'common.no_results' | translate" body="" icon="bi-search" />
+    </div></div>
+  } @else {
+    <div class="pk-grid">
+      @for (pack of paged(); track pack.id) {
+        <article class="pk-card" [class.is-off]="!pack.active">
+          <header class="pk-card-head">
+            <span class="pk-icon" aria-hidden="true"><i class="bi bi-collection"></i></span>
+            <h3 [innerHTML]="pack.name | highlight: search()"></h3>
+            @if (!pack.active) {
+              <app-status-badge status="inactive">{{ "common.inactive" | translate }}</app-status-badge>
+            }
+            <app-action-menu class="ms-auto">
+              <button type="button" class="fx-menu-item" (click)="openEdit(pack)">
+                <i class="bi bi-pencil"></i> {{ "common.edit" | translate }}
+              </button>
+              <div class="fx-menu-divider"></div>
+              @if (pack.active) {
+                <button type="button" class="fx-menu-item is-danger" (click)="deactivate(pack)">
+                  <i class="bi bi-slash-circle"></i> {{ "common.deactivate" | translate }}
+                </button>
+              } @else {
+                <button type="button" class="fx-menu-item" (click)="reactivate(pack)">
+                  <i class="bi bi-arrow-counterclockwise"></i> {{ "packs.reactivate" | translate }}
+                </button>
+              }
+            </app-action-menu>
+          </header>
+
+          <ul class="pk-acts" [attr.aria-label]="'nav.activities' | translate">
+            @for (a of pack.activities; track a.id) {
+              <li>{{ a.emoji ? a.emoji + " " : "" }}{{ a.name }}</li>
+            }
+          </ul>
+
+          @if (pack.description) {
+            <p class="pk-desc">{{ pack.description }}</p>
+          }
+
+          @if (pricesOf(pack).length === 0) {
+            <p class="pk-warn"><i class="bi bi-exclamation-triangle"></i> {{ "packs.not_priced" | translate }}</p>
+          } @else {
+            <ul class="pk-prices">
+              @for (row of pricesOf(pack); track row.plan.id) {
+                <li>
+                  <span>{{ row.plan.name }}</span>
+                  <span class="pk-price">{{ row.price | money: row.plan.currency }}</span>
+                </li>
+              }
+            </ul>
+          }
+
+          <footer class="pk-card-foot">
+            <button type="button" class="btn btn-sm btn-outline-secondary w-100" (click)="openEdit(pack)">
+              <i class="bi bi-pencil"></i> {{ "common.edit" | translate }}
+            </button>
+          </footer>
+        </article>
+      }
+    </div>
+
+    <app-pagination [meta]="meta()" (pageChange)="page.set($event)" />
+  }
+</div>
+
+<app-modal [open]="modalOpen()" [title]="(editing() ? 'packs.edit' : 'packs.new') | translate" (closed)="closeModal()">
+  @if (formError()) {
+    <div class="alert alert-danger">{{ formError() }}</div>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <div class="mb-3">
+      <label for="pk-name">{{ "packs.name" | translate }} *</label>
+      <input id="pk-name" class="form-control" formControlName="name" [placeholder]="'packs.name_placeholder' | translate" />
+    </div>
+
+    <fieldset class="mb-3">
+      <legend class="form-label mb-1">{{ "packs.activities" | translate }} *</legend>
+      <p class="small text-muted-token mb-2">{{ "packs.activities_hint" | translate }}</p>
+      <div class="pk-pick">
+        @for (a of activities(); track a.id) {
+          <button type="button" class="pk-pick-btn" [class.is-on]="selected().has(a.id)" [attr.aria-pressed]="selected().has(a.id)"
+                  (click)="toggle(a.id)">
+            @if (selected().has(a.id)) { <i class="bi bi-check-lg" aria-hidden="true"></i> }
+            {{ a.emoji ? a.emoji + " " : "" }}{{ a.name }}
+          </button>
+        }
+      </div>
+    </fieldset>
+
+    <fieldset class="mb-3">
+      <legend class="form-label mb-1">{{ "packs.prices" | translate }}</legend>
+      <p class="small text-muted-token mb-2">{{ "packs.prices_hint" | translate }}</p>
+      @if (plans().length === 0) {
+        <div class="alert alert-info mb-0">{{ "packs.no_plans" | translate }}</div>
+      } @else {
+        <div class="fx-price-grid">
+          @for (plan of plans(); track plan.id) {
+            <div class="fx-price-grid-row">
+              <label class="mb-0" [for]="'pk-price-' + plan.id">
+                {{ plan.name }}
+                <span class="pk-period">{{ ("catalogue.length_" + plan.billing_period) | translate: { days: plan.validity_days } }}</span>
+                @if (separately(plan); as sum) {
+                  <span class="pk-sep">{{ "packs.separately" | translate: { amount: (sum | money: plan.currency) } }}</span>
+                }
+              </label>
+              <div class="input-group input-group-sm">
+                <input [id]="'pk-price-' + plan.id" type="number" min="0" step="0.01" class="form-control"
+                       [value]="priceFor(plan.id) ?? ''" (input)="setPrice(plan.id, $event)"
+                       [placeholder]="'contract_types.not_offered' | translate" />
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </fieldset>
+
+    <div class="mb-3">
+      <label for="pk-desc">{{ "activities.description" | translate }}</label>
+      <textarea id="pk-desc" class="form-control" rows="2" formControlName="description"></textarea>
+    </div>
+
+    @if (editing()) {
+      <div class="mb-3 form-check">
+        <input id="pk-active" type="checkbox" class="form-check-input" formControlName="active" />
+        <label for="pk-active" class="form-check-label">{{ "common.active" | translate }}</label>
+      </div>
+    }
+
+    <div class="d-flex justify-content-end gap-2 mt-4">
+      <button type="button" class="btn btn-outline-secondary" (click)="closeModal()">{{ "common.cancel" | translate }}</button>
+      <button type="submit" class="btn btn-primary" [disabled]="saving()">
+        {{ (saving() ? "common.saving" : "common.save") | translate }}
+      </button>
+    </div>
+  </form>
+</app-modal>

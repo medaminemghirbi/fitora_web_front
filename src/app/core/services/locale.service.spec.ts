@@ -26,7 +26,7 @@ describe("LocaleService", () => {
   it("setLocale updates the signal, persists it, and sets dir/lang on <html>", () => {
     service.setLocale("ar");
     expect(service.locale()).toBe("ar");
-    expect(localStorage.getItem("gymly_locale")).toBe("ar");
+    expect(localStorage.getItem("fitora_locale")).toBe("ar");
     expect(translateStub.use).toHaveBeenCalledWith("ar");
     expect(document.documentElement.getAttribute("dir")).toBe("rtl");
     expect(document.documentElement.getAttribute("lang")).toBe("ar");

@@ -15,7 +15,7 @@ describe("ThemeService", () => {
   });
 
   it("restores a stored dark theme on construction", () => {
-    localStorage.setItem("gymly_theme", "dark");
+    localStorage.setItem("fitora_theme", "dark");
     TestBed.resetTestingModule();
     const service = TestBed.inject(ThemeService);
     expect(service.theme()).toBe("dark");
@@ -26,7 +26,7 @@ describe("ThemeService", () => {
     const service = TestBed.inject(ThemeService);
     service.setTheme("dark");
     expect(service.theme()).toBe("dark");
-    expect(localStorage.getItem("gymly_theme")).toBe("dark");
+    expect(localStorage.getItem("fitora_theme")).toBe("dark");
     expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
   });
 

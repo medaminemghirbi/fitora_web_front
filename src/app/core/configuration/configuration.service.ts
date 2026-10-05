@@ -57,7 +57,7 @@ export interface Bootstrap {
   notifications: { unread_count: number } | null;
 }
 
-const CACHE_KEY = "gymly_bootstrap";
+const CACHE_KEY = "fitora_bootstrap";
 
 // One place the app reads "what is this tenant and what may this user do".
 // Hydrated from GET /api/v1/bootstrap on login and hard reload — replaces
@@ -157,7 +157,7 @@ export class ConfigurationService {
     this.injector.get(NotificationService).disconnect();
   }
 
-  // A Gymly superadmin skips the tenant bootstrap entirely (see
+  // A Fitora superadmin skips the tenant bootstrap entirely (see
   // AuthService.loadConfiguration) but still gets the real-time
   // system_update feed — same channel, same service, just no company state.
   // refresh() also seeds the unread badge immediately (no bootstrap payload

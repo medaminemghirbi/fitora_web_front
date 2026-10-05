@@ -4,15 +4,17 @@ import { FormsModule } from "@angular/forms";
 import { ActivatedRoute, RouterLink } from "@angular/router";
 import { TranslateModule, TranslateService } from "@ngx-translate/core";
 import { Contract, ContractStatus } from "../../../core/models/contract.model";
-import { ContractType } from "../../../core/models/contract-type.model";
+import { ContractType, sellableItems, sellableTarget } from "../../../core/models/contract-type.model";
 import { ContractTypesService } from "../../../core/services/contract-types.service";
-import { ContractsService } from "../../../core/services/contracts.service";
+import { ContractsService, RenewContractPayload } from "../../../core/services/contracts.service";
 import { PaymentsService } from "../../../core/services/payments.service";
 import { ToastService } from "../../../core/services/toast.service";
 import { ConfirmService } from "../../../core/services/confirm.service";
 import { extractErrorMessage } from "../../../core/services/error.util";
+import { downloadBlob } from "../../../core/services/download.util";
 import { PageMeta } from "../../../core/services/sessions.service";
 import { AvatarComponent } from "../../../shared/components/avatar.component";
+import { ModalComponent } from "../../../shared/components/modal.component";
 import { EmptyStateComponent } from "../../../shared/components/empty-state.component";
 import { PaginationComponent } from "../../../shared/components/pagination.component";
 import { StatusBadgeComponent } from "../../../shared/components/status-badge.component";
@@ -34,6 +36,7 @@ import { BrandingService } from "../../../core/services/branding.service";
     RouterLink,
     TranslateModule,
     AvatarComponent,
+    ModalComponent,
     EmptyStateComponent,
     PaginationComponent,
     StatusBadgeComponent,
@@ -53,28 +56,29 @@ export class ContractsComponent implements OnInit {
   readonly contracts = signal<Contract[]>([]);
   readonly meta = signal<PageMeta | null>(null);
   readonly page = signal(1);
-  // "expiring" is not one of the four period states — it means "active and
+  // "expiring" is not one of the four contract states — it means "active and
   // running out within the month", resolved by the backend.
-  readonly contractStatusFilter = signal<ContractStatus | "expiring" | "">("");
+  readonly contractStatusFilter = signal<ContractStatus | "expiring" | "paused" | "">("");
   readonly paymentFilter = signal<"unpaid" | "paid" | "">("");
   readonly contractTypeFilter = signal<string | "">("");
   readonly search = signal("");
   private searchDebounce?: ReturnType<typeof setTimeout>;
 
-  // Only needed to populate the "Formule" filter dropdown — the catalogue
-  // itself lives at Abonnements > Formules.
+  // The "Formule" filter dropdown, and the formules a renewal can move onto —
+  // the catalogue itself lives at Abonnements > Formules.
   readonly plans = signal<ContractType[]>([]);
 
   // Four colours across the whole app: green in order, orange worth
   // watching, red needs doing, grey no longer applies. "Expire bientôt" is
-  // not a period state — it is active with a month to run — but it is the
+  // not a contract state — it is active with a month to run — but it is the
   // one a desk filters by most, so it sits in the rail beside the four.
-  readonly statusOptions: { value: ContractStatus | "expiring" | ""; labelKey: string; countKey: string; color: string }[] = [
+  readonly statusOptions: { value: ContractStatus | "expiring" | "paused" | ""; labelKey: string; countKey: string; color: string }[] = [
     { value: "", labelKey: "clients.filter_all", countKey: "all", color: "var(--color-primary)" },
     { value: "active", labelKey: "contract.status_active", countKey: "active", color: "var(--color-success)" },
     { value: "expiring", labelKey: "contract.status_expiring", countKey: "expiring", color: "var(--color-warning)" },
     { value: "expired", labelKey: "contract.status_expired", countKey: "expired", color: "var(--color-danger)" },
     { value: "pending", labelKey: "contract.status_pending", countKey: "pending", color: "var(--color-info)" },
+    { value: "paused", labelKey: "contract.status_paused", countKey: "paused", color: "var(--color-info)" },
     { value: "cancelled", labelKey: "contract.status_cancelled", countKey: "cancelled", color: "var(--color-muted)" },
   ];
 
@@ -110,7 +114,7 @@ export class ContractsComponent implements OnInit {
     // re-entered without a fresh navigation.
     const q = this.route.snapshot.queryParamMap;
     const status = q.get("status");
-    if (status) this.contractStatusFilter.set(status as ContractStatus | "expiring");
+    if (status) this.contractStatusFilter.set(status as ContractStatus | "expiring" | "paused");
     const payment = q.get("payment");
     if (payment === "unpaid" || payment === "paid") this.paymentFilter.set(payment);
 
@@ -154,7 +158,7 @@ export class ContractsComponent implements OnInit {
     }, SEARCH_DEBOUNCE_MS);
   }
 
-  applyContractFilter(status: ContractStatus | ""): void {
+  applyContractFilter(status: ContractStatus | "expiring" | "paused" | ""): void {
     this.contractStatusFilter.set(status);
     this.page.set(1);
     this.loadContracts();
@@ -168,6 +172,7 @@ export class ContractsComponent implements OnInit {
 
   /** A row's strip: what needs attention (unpaid, expiring, expired) shows. */
   rowColor(contract: Contract): string {
+    if (contract.paused) return "var(--color-info)";
     if (contract.status === "expired") return "var(--color-danger)";
     if (contract.status === "cancelled") return "var(--color-muted)";
     if (contract.payment_status === "unpaid") return "var(--color-info)";
@@ -200,27 +205,62 @@ export class ContractsComponent implements OnInit {
   // row you were already looking at. The row does both now.
   readonly rowBusy = signal<string | null>(null);
 
-  /**
-   * How far the contract is paid up once the queued renewals are counted —
-   * the end of the LAST period sold, not the one running today.
-   */
-  renewedThrough(contract: Contract): string | null {
-    return contract.upcoming_periods.at(-1)?.expires_at ?? null;
+  /** A renewal sold early that has not started yet — waiting its turn behind the running term. */
+  isQueuedRenewal(contract: Contract): boolean {
+    return !!contract.renewed_from_id && !!contract.starts_at && new Date(contract.starts_at).getTime() > Date.now();
   }
 
-  async renew(contract: Contract): Promise<void> {
-    if (this.rowBusy()) return;
+  // ---- renewing ------------------------------------------------------------
+  // A renewal is a new contract, so it can be for another formule: the
+  // dialog opens on the one the member is on, and the desk may pick another.
+  readonly renewing = signal<Contract | null>(null);
+  readonly renewPlanId = signal<string | null>(null);
+  /** A SellableItem key — "activity:<id>" or "pack:<id>"; null for all-access. */
+  readonly renewItem = signal<string | null>(null);
+  readonly renewPlan = computed(() => this.plans().find((p) => p.id === this.renewPlanId()) ?? null);
+  readonly renewItems = computed(() => sellableItems(this.renewPlan()));
+  readonly renewPrice = computed(() => this.renewItems().find((i) => i.key === this.renewItem())?.price ?? null);
+  /** Unchanged formule — the backend renews it as it is, all-access included. */
+  readonly renewSameFormule = computed(() => {
+    const contract = this.renewing();
+    return !!contract && contract.plan.id === this.renewPlanId() && this.renewItem() === itemKeyOf(contract);
+  });
+  /** Another formule has to be priced for what it is sold for, or the backend refuses it. */
+  readonly renewBlocked = computed(() => !this.renewSameFormule() && this.renewPrice() === null);
 
-    const confirmed = await this.confirm.ask({
-      title: this.translate.instant("contracts.renew_confirm_title"),
-      body: this.translate.instant("contracts.renew_confirm_body_for", { name: contract.client.full_name }),
-    });
-    if (!confirmed) return;
+  renew(contract: Contract): void {
+    if (this.rowBusy()) return;
+    this.renewing.set(contract);
+    this.renewPlanId.set(contract.plan.id);
+    this.renewItem.set(itemKeyOf(contract));
+  }
+
+  onRenewPlanChange(planId: string): void {
+    this.renewPlanId.set(planId);
+    const items = this.renewItems();
+    // Keep the activity or pack when the new formule sells it too.
+    if (!items.some((i) => i.key === this.renewItem())) {
+      this.renewItem.set(items.length === 1 ? items[0].key : null);
+    }
+  }
+
+  closeRenew(): void {
+    this.renewing.set(null);
+  }
+
+  confirmRenew(): void {
+    const contract = this.renewing();
+    if (!contract || this.rowBusy() || this.renewBlocked()) return;
+
+    const payload: RenewContractPayload = this.renewSameFormule()
+      ? {}
+      : { contract_type_id: this.renewPlanId()!, ...sellableTarget(this.renewItem()) };
 
     this.rowBusy.set(contract.id);
-    this.contractsService.renew(contract.id).subscribe({
+    this.contractsService.renew(contract.id, payload).subscribe({
       next: () => {
         this.rowBusy.set(null);
+        this.renewing.set(null);
         this.toast.success(this.translate.instant("contracts.renewed"));
         this.loadContracts();
       },
@@ -232,20 +272,48 @@ export class ContractsComponent implements OnInit {
   }
 
   /**
-   * Settles the period in full, in cash — the desk's overwhelming case. The
+   * A membership on hold — an injury, a pregnancy, a month away. The member
+   * keeps every day they paid for: resuming moves the end date back.
+   */
+  async togglePause(contract: Contract): Promise<void> {
+    if (this.rowBusy()) return;
+    const pausing = !contract.paused;
+
+    if (pausing) {
+      const confirmed = await this.confirm.ask({
+        title: this.translate.instant("contracts.pause_confirm_title"),
+        body: this.translate.instant("contracts.pause_confirm_body", { name: contract.client.full_name }),
+      });
+      if (!confirmed) return;
+    }
+
+    this.rowBusy.set(contract.id);
+    const request = pausing ? this.contractsService.pause(contract.id) : this.contractsService.resume(contract.id);
+    request.subscribe({
+      next: () => {
+        this.rowBusy.set(null);
+        this.toast.success(this.translate.instant(pausing ? "contracts.paused_done" : "contracts.resumed_done"));
+        this.loadContracts();
+      },
+      error: (err) => {
+        this.rowBusy.set(null);
+        this.toast.error(extractErrorMessage(err, this.translate.instant("common.error_generic")));
+      },
+    });
+  }
+
+  /**
+   * Settles the contract in full, in cash — the desk's overwhelming case. The
    * amount is deliberately not sent: the backend settles the payable, which
-   * is the whole price or nothing (Gymly takes no part payments). Anything
+   * is the whole price or nothing (Fitora takes no part payments). Anything
    * else still goes through Encaissements.
    */
   collect(contract: Contract): void {
-    // The oldest period still owed — which is the renewal, not the term in
-    // force, once the running term has been paid for and renewed early.
-    const period = contract.payable_period_id ?? contract.current_period_id;
-    if (this.rowBusy() || !period) return;
+    if (this.rowBusy()) return;
 
     this.rowBusy.set(contract.id);
     this.paymentsService
-      .record({ client_id: contract.client.id, payment_method: "cash", contract_period_id: period })
+      .record({ client_id: contract.client.id, payment_method: "cash", contract_id: contract.id })
       .subscribe({
         next: () => {
           this.rowBusy.set(null);
@@ -257,6 +325,22 @@ export class ContractsComponent implements OnInit {
           this.toast.error(extractErrorMessage(err, this.translate.instant("common.error_generic")));
         },
       });
+  }
+
+  // ---- documents ------------------------------------------------------------
+  /** The contract to sign, already signed by the gym. */
+  downloadAgreement(contract: Contract): void {
+    this.contractsService.agreement(contract.id).subscribe({
+      next: (blob) => downloadBlob(blob, `contrat-${contract.invoice_ref}.pdf`),
+      error: () => this.toast.error(this.translate.instant("common.error_generic")),
+    });
+  }
+
+  downloadInvoice(contract: Contract): void {
+    this.contractsService.receipt(contract.id).subscribe({
+      next: (blob) => downloadBlob(blob, `facture-${contract.invoice_ref}.pdf`),
+      error: () => this.toast.error(this.translate.instant("common.error_generic")),
+    });
   }
 
   readonly filterChips = computed(() => {
@@ -284,4 +368,11 @@ export class ContractsComponent implements OnInit {
     }
     return chips;
   });
+}
+
+/** What a contract was sold for, as a SellableItem key — null when all-access. */
+function itemKeyOf(contract: Contract): string | null {
+  if (contract.pack) return `pack:${contract.pack.id}`;
+  if (contract.activity) return `activity:${contract.activity.id}`;
+  return null;
 }

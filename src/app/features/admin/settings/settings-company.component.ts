@@ -19,7 +19,7 @@ export class SettingsCompanyComponent implements OnInit {
   readonly loading = signal(true);
   readonly saving = signal(false);
 
-  // currency + app language are Gymly-superadmin managed (shown read-only below).
+  // currency + app language are Fitora-superadmin managed (shown read-only below).
   readonly currency = signal("TND");
   readonly currencySymbol = signal("");
   readonly locale = signal("fr");

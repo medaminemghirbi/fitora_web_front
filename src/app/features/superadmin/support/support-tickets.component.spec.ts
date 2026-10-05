@@ -57,7 +57,7 @@ describe("SuperadminSupportTicketsComponent", () => {
     expect(service.list).toHaveBeenCalledWith(undefined);
   });
 
-  // Gymly calls back to set a requested plan up: the number is the first
+  // Fitora calls back to set a requested plan up: the number is the first
   // thing to act on, one click from dialling.
   it("marks a plan request and puts its number one click from dialling", () => {
     service.list.and.returnValue(

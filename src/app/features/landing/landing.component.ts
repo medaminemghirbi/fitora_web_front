@@ -51,26 +51,26 @@ export class LandingComponent {
     return label.charAt(0).toLocaleUpperCase(code) + label.slice(1);
   });
 
-  /** One gym's day, for the hero card. Illustrative. */
+  /** One studio's day, for the hero card. Illustrative. */
   readonly todayClasses: TodayClass[] = [
-    { time: "07:00", name: "RPM", coach: "Sami", room: "Studio 1", booked: 18, capacity: 20, waitlist: 0 },
-    { time: "09:00", name: "Pilates", coach: "Sarah", room: "Studio 2", booked: 12, capacity: 12, waitlist: 3 },
-    { time: "12:30", name: "EMS", coach: "Amine", room: "Cabine", booked: 2, capacity: 4, waitlist: 0 },
-    { time: "18:30", name: "Cross Training", coach: "Yassine", room: "Plateau", booked: 11, capacity: 16, waitlist: 0 },
+    { time: "07:30", name: "EMS", coach: "Amine", room: "Cabine 1", booked: 1, capacity: 1, waitlist: 0 },
+    { time: "09:00", name: "Pilates Reformer", coach: "Sarah", room: "Studio", booked: 6, capacity: 6, waitlist: 2 },
+    { time: "12:30", name: "Coaching privé", coach: "Yassine", room: "Studio 2", booked: 1, capacity: 1, waitlist: 0 },
+    { time: "18:30", name: "Yoga Vinyasa", coach: "Lina", room: "Studio", booked: 9, capacity: 14, waitlist: 0 },
   ];
 
   readonly heroPoints = ["landing.hero_point_1", "landing.hero_point_2", "landing.hero_point_3"];
 
   readonly band = ["landing.band_1", "landing.band_2", "landing.band_3", "landing.band_4", "landing.band_5", "landing.band_6"];
 
-  /** The six features, in the order a gym meets them during a day. */
+  /** The six features, in the order a studio meets them with a new client. */
   readonly features = [
     { title: "landing.f_planning_t", text: "landing.f_planning_d" },
+    { title: "landing.f_slots_t", text: "landing.f_slots_d" },
     { title: "landing.f_memberships_t", text: "landing.f_memberships_d" },
-    { title: "landing.f_checkin_t", text: "landing.f_checkin_d" },
+    { title: "landing.f_trial_t", text: "landing.f_trial_d" },
+    { title: "landing.f_reminders_t", text: "landing.f_reminders_d" },
     { title: "landing.f_member_t", text: "landing.f_member_d" },
-    { title: "landing.f_cash_t", text: "landing.f_cash_d" },
-    { title: "landing.f_hr_t", text: "landing.f_hr_d" },
   ];
 
   readonly steps = [1, 2, 3];
@@ -98,8 +98,9 @@ export class LandingComponent {
     return Math.min(100, Math.round((c.booked / c.capacity) * 100));
   }
 
+  /** A group that has run out of places. A one-to-one slot is booked, not "full". */
   isFull(c: TodayClass): boolean {
-    return c.booked >= c.capacity;
+    return c.capacity > 1 && c.booked >= c.capacity;
   }
 
   setLocale(code: Locale): void {

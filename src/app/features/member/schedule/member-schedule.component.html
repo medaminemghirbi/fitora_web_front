@@ -29,7 +29,12 @@
                 </span>
                 <span class="mb-slot-sub">
                   @if (s.coach_name) { {{ s.coach_name }} · }
-                  @if (s.full) {
+                  @if (s.space_name) { {{ s.space_name }} · }
+                  <!-- A one-to-one slot is free or taken; "1 place left" would
+                       read like a class about to fill. -->
+                  @if (s.individual) {
+                    {{ "member.private_slot" | translate }}
+                  } @else if (s.full) {
                     {{ "member.full" | translate }}
                   } @else {
                     {{ "member.spots_left" | translate: { count: s.spots_left } }}

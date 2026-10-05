@@ -5,7 +5,7 @@
         <span class="lp-brand-mark" aria-hidden="true">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 4v16M18 4v16M3 8v8M21 8v8M6 12h12" /></svg>
         </span>
-        Gymly
+        Fitora
       </a>
 
       <nav class="lp-nav-links" [attr.aria-label]="'landing.nav_menu' | translate">
@@ -71,7 +71,7 @@
             {{ "landing.hero_cta_primary" | translate }}
             <i class="bi bi-arrow-right lp-arrow" aria-hidden="true"></i>
           </a>
-          <a href="mailto:contact@gymly.io" class="lp-btn lp-btn--ghost lp-btn--lg">{{ "landing.hero_cta_demo" | translate }}</a>
+          <a href="mailto:contact@fitora.io" class="lp-btn lp-btn--ghost lp-btn--lg">{{ "landing.hero_cta_demo" | translate }}</a>
         </div>
         <ul class="lp-hero-points">
           @for (p of heroPoints; track p) {
@@ -238,15 +238,15 @@
 
   <footer class="lp-shell lp-foot">
     <div class="lp-foot-brand">
-      <span class="lp-brand">Gymly</span>
+      <span class="lp-brand">Fitora</span>
       <p>{{ "landing.footer_tag" | translate }}</p>
     </div>
     <nav class="lp-foot-links" [attr.aria-label]="'landing.footer_col_product' | translate">
       <a [routerLink]="['/']" fragment="features">{{ "landing.nav_features" | translate }}</a>
       <a [routerLink]="['/']" fragment="pricing">{{ "landing.pricing_kicker" | translate }}</a>
-      <a href="mailto:contact@gymly.io">{{ "landing.footer_contact" | translate }}</a>
+      <a href="mailto:contact@fitora.io">{{ "landing.footer_contact" | translate }}</a>
       <a routerLink="/connexion">{{ "auth.sign_in" | translate }}</a>
     </nav>
-    <p class="lp-foot-copy">© {{ year() }} Gymly. {{ "landing.footer_rights" | translate }}</p>
+    <p class="lp-foot-copy">© {{ year() }} Fitora. {{ "landing.footer_rights" | translate }}</p>
   </footer>
 </div>

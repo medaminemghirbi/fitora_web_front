@@ -360,7 +360,7 @@ describe("SubscriptionComponent", () => {
       expect(tickets.create).not.toHaveBeenCalled();
     });
 
-    // Payment happens off-app: Gymly calls back to set the plan up.
+    // Payment happens off-app: Fitora calls back to set the plan up.
     describe("the number to call back on", () => {
       it("will not send without one, and says so on the field", () => {
         withPlans("starter");

@@ -27,6 +27,10 @@ export interface ClientDetail extends Client {
   emergency_contact_name: string | null;
   emergency_contact_phone: string | null;
   notes: string | null;
+  /** Contraindications a coach must know (pacemaker, pregnancy, an injury). Shown to the member's coaches. */
+  health_notes: string | null;
+  /** When the member signed the studio's health declaration (YYYY-MM-DD). */
+  waiver_signed_on: string | null;
   outstanding_balance: string;
   attendance_rate: number | null;
   /**

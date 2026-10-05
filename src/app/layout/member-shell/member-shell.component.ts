@@ -64,7 +64,7 @@ export class MemberShellComponent {
 
   constructor() {
     // The gym's name belongs in the bar: this is their gym's app, shown to
-    // them, not a Gymly product they signed up for.
+    // them, not a Fitora product they signed up for.
     this.member.load().subscribe({ error: () => undefined });
     // A class called off, a seat from the waitlist, a subscription running
     // out — live, and the badge seeded now rather than on first open.

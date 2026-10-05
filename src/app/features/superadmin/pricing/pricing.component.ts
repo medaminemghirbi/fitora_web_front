@@ -16,7 +16,7 @@ interface PlanRow {
 }
 
 /**
- * What Gymly's two plans cost, per currency, and the annual discount.
+ * What Fitora's two plans cost, per currency, and the annual discount.
  * Starter is the whole product; Pro adds the member app and every update.
  * Each is priced per admin account, however many salles it covers.
  */

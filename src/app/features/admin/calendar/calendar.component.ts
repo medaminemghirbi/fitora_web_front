@@ -14,9 +14,13 @@ import frLocale from "@fullcalendar/core/locales/fr";
 import arLocale from "@fullcalendar/core/locales/ar";
 import { Activity, CAPACITY_BOUNDS, SessionFormat } from "../../../core/models/activity.model";
 import { AttendanceBooking, AttendanceStatus } from "../../../core/models/attendance.model";
+import { BookingKind } from "../../../core/models/booking.model";
 import { Client } from "../../../core/models/client.model";
 import { Coach } from "../../../core/models/coach.model";
 import { Session } from "../../../core/models/session.model";
+import { Space } from "../../../core/models/space.model";
+import { ConfigurationService } from "../../../core/configuration/configuration.service";
+import { SpacesService } from "../../../core/services/spaces.service";
 import { ActivitiesService } from "../../../core/services/activities.service";
 import { AttendanceService } from "../../../core/services/attendance.service";
 import { BookingsService } from "../../../core/services/bookings.service";
@@ -84,6 +88,14 @@ export class CalendarComponent implements OnInit {
   private readonly recurring = inject(RecurringSchedulesService);
   readonly stoppingSeries = signal(false);
 
+  private readonly configuration = inject(ConfigurationService);
+  private readonly spacesService = inject(SpacesService);
+  /** Rooms and cabins — only for a gym that runs them (Settings → Booking). */
+  readonly roomsOn = computed(() => !!this.configuration.features()["spaces"]);
+  readonly spaces = signal<Space[]>([]);
+  /** Whether the desk may book a trial or a single paid session with no contract. */
+  readonly dropIn = computed(() => this.configuration.features()["drop_in"] !== false);
+
   // === session detail ===
   readonly detailOpen = signal(false);
   readonly detailLoading = signal(false);
@@ -107,7 +119,10 @@ export class CalendarComponent implements OnInit {
   readonly createForm = this.fb.nonNullable.group({
     activity_id: [null as string | null, Validators.required],
     client_id: [null as string | null],
+    /** How the member's seat is paid for, when one is named — see BookingsService.create. */
+    booking_kind: ["contract" as BookingKind],
     coach_id: [null as string | null],
+    space_id: [null as string | null],
     date: [toDateInputValue(new Date()), Validators.required],
     start_time: ["09:00", Validators.required],
     capacity: [null as number | null],
@@ -225,7 +240,7 @@ export class CalendarComponent implements OnInit {
     );
 
     // Picking an activity in the "new session" form drives its capacity range
-    // and — for individual activities — reveals the required member field.
+    // and — for individual activities — reveals the member field.
     this.createForm.controls.activity_id.valueChanges
       .pipe(takeUntilDestroyed())
       .subscribe((id) => this.applyCreateActivity(id));
@@ -251,9 +266,12 @@ export class CalendarComponent implements OnInit {
       capacity.setValidators(validators);
       capacity.setValue(activity.session_format === "individual" ? 1 : activity.capacity, { emitEvent: false });
 
+      // A one-to-one slot may name its member, or stay open for a member to
+      // take from their app — how an EMS or personal-training studio fills
+      // its week.
       if (activity.session_format === "individual") {
         capacity.disable({ emitEvent: false });
-        clientId.setValidators(Validators.required);
+        clientId.clearValidators();
       } else {
         capacity.enable({ emitEvent: false });
         clientId.setValue(null, { emitEvent: false });
@@ -274,6 +292,9 @@ export class CalendarComponent implements OnInit {
     // Members, for the "individual session" picker. Best-effort like the rest.
     if (this.canManageSessions()) {
       this.clientsService.list({ per_page: 100 }).subscribe({ next: (res) => this.clients.set(res.clients), error: () => {} });
+      if (this.roomsOn()) {
+        this.spacesService.list().subscribe({ next: (res) => this.spaces.set(res.spaces.filter((r) => r.active)), error: () => {} });
+      }
     }
 
     const canManage = this.canManageSessions();
@@ -407,13 +428,18 @@ export class CalendarComponent implements OnInit {
     root.className = compact ? "fx-ev fx-ev--compact" : "fx-ev";
     if (!session.coach_id) root.classList.add("is-uncoached");
     if (this.isRunning(session)) root.classList.add("is-now");
+    // A one-to-one slot nobody has taken yet: the hour a studio still has to
+    // sell, so it reads as free rather than as an empty class.
+    const open = !!session.individual && session.confirmed_count === 0 && session.status === "scheduled";
+    if (open) root.classList.add("is-open");
+    const openLabel = open ? ` · ${this.translate.instant("calendar.slot_open")}` : "";
 
     if (compact) {
       // One line: the start and what it is. Everything else is a hover away,
       // and legible beats complete in twenty pixels.
       const line = document.createElement("span");
       line.className = "fx-ev-line";
-      line.textContent = `${arg.timeText} ${session.activity_name}`;
+      line.textContent = `${arg.timeText} ${session.activity_name}${openLabel}`;
       root.appendChild(line);
     } else {
       const time = document.createElement("span");
@@ -423,8 +449,15 @@ export class CalendarComponent implements OnInit {
 
       const title = document.createElement("span");
       title.className = "fx-ev-title";
-      title.textContent = `${session.activity_emoji ? session.activity_emoji + " " : ""}${session.activity_name}`;
+      title.textContent = `${session.activity_emoji ? session.activity_emoji + " " : ""}${session.activity_name}${openLabel}`;
       root.appendChild(title);
+
+      if (session.space_name) {
+        const room = document.createElement("span");
+        room.className = "fx-ev-coach";
+        room.textContent = session.space_name;
+        root.appendChild(room);
+      }
     }
 
     // A session nobody is running is a problem, and the calendar is where it
@@ -631,6 +664,7 @@ export class CalendarComponent implements OnInit {
       // flattening to the top of the hour.
       start_time: date ? `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}` : "09:00",
       repeat_weekly: false,
+      booking_kind: "contract",
       // Two months ahead: long enough to be worth setting up, short enough
       // that a timetable change does not leave a year of stale classes.
       repeat_until: toDateInputValue(new Date((date ?? new Date()).getTime() + 8 * 7 * 86400000)),
@@ -650,7 +684,20 @@ export class CalendarComponent implements OnInit {
    * session is for one member, so it never repeats.
    */
   repeats(): boolean {
-    return this.createForm.controls.repeat_weekly.value && this.createFormat() !== "individual";
+    return this.createForm.controls.repeat_weekly.value && this.canRepeat();
+  }
+
+  /**
+   * A class repeats; so does an open one-to-one slot (a coach's Tuesday 9:00
+   * EMS hour). A session already booked for one named member does not.
+   */
+  canRepeat(): boolean {
+    return this.createFormat() !== "individual" || !this.createForm.controls.client_id.value;
+  }
+
+  /** Whether the member named on a new one-to-one slot is booked as a trial or drop-in. */
+  showBookingKind(): boolean {
+    return this.dropIn() && this.createFormat() === "individual" && !!this.createForm.controls.client_id.value;
   }
 
   /** "Tuesday" for the date picked — the day the class repeats on. */
@@ -670,7 +717,7 @@ export class CalendarComponent implements OnInit {
       return;
     }
 
-    const { activity_id, client_id, coach_id, date, start_time, capacity, price } = this.createForm.getRawValue();
+    const { activity_id, client_id, booking_kind, coach_id, space_id, date, start_time, capacity, price } = this.createForm.getRawValue();
     const activity = this.activities().find((a) => a.id === activity_id);
     if (!activity) return;
 
@@ -684,7 +731,10 @@ export class CalendarComponent implements OnInit {
       .create({
         activity_id: activity_id!,
         client_id: client_id || undefined,
+        ...(client_id && booking_kind === "trial" ? { trial: true } : {}),
+        ...(client_id && booking_kind === "drop_in" ? { drop_in: true } : {}),
         coach_id: coach_id || null,
+        ...(space_id ? { space_id } : {}),
         starts_at: startsAt.toISOString(),
         ends_at: endsAt.toISOString(),
         capacity: capacity || undefined,
@@ -706,7 +756,7 @@ export class CalendarComponent implements OnInit {
   }
 
   private submitWeeklyClass(): void {
-    const { activity_id, coach_id, date, start_time, repeat_until } = this.createForm.getRawValue();
+    const { activity_id, coach_id, space_id, date, start_time, repeat_until } = this.createForm.getRawValue();
     if (!repeat_until || repeat_until < date) {
       this.formError.set(this.translate.instant("calendar.repeat_until_invalid"));
       return;
@@ -718,6 +768,7 @@ export class CalendarComponent implements OnInit {
       .create({
         activity_id: activity_id!,
         coach_id: coach_id || null,
+        ...(space_id ? { space_id } : {}),
         start_time,
         starts_on: date,
         ends_on: repeat_until,

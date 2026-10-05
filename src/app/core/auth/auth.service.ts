@@ -8,17 +8,25 @@ import { API_BASE_URL } from "../models/api-config";
 import { Client } from "../models/client.model";
 import { User } from "../models/user.model";
 
-const TOKEN_KEY = "gymly_token";
+const TOKEN_KEY = "fitora_token";
 // Versioned: before v2 a cached user carried the previous role names, in
-// which "admin" meant Gymly's superadmin. Read now, it would put Gymly's
+// which "admin" meant Fitora's superadmin. Read now, it would put Fitora's
 // operator in a gym's shell until the next refresh, so an old cache is
 // dropped and the person signs in again (see dropPreRenameSession).
-const USER_KEY = "gymly_user_v2";
-const CLIENT_KEY = "gymly_client";
-const IMPERSONATOR_KEY = "gymly_impersonator_v2";
-const PRE_RENAME_KEYS = ["gymly_user", "gymly_impersonator"];
+const USER_KEY = "fitora_user_v2";
+const CLIENT_KEY = "fitora_client";
+const IMPERSONATOR_KEY = "fitora_impersonator_v2";
+// Keys from before the role rename and from when the product was "Gymly".
+const PRE_RENAME_KEYS = [
+  "gymly_user",
+  "gymly_impersonator",
+  "gymly_token",
+  "gymly_user_v2",
+  "gymly_client",
+  "gymly_impersonator_v2",
+];
 
-// One door, two kinds of account: a platform login (admin, staff, Gymly
+// One door, two kinds of account: a platform login (admin, staff, Fitora
 // superadmin) or a member whose gym enabled their access. account_type says which
 // came back, so nobody is asked who they are before signing in.
 interface AuthResponse {
@@ -134,7 +142,15 @@ export class AuthService {
       this.config.connectSuperadminNotifications();
       return;
     }
-    this.config.load().subscribe({ error: () => {} });
+    // The cached user is whatever login answered, and nothing else rewrites
+    // it: a salle opened (or a moderator posted) since would never reach the
+    // navbar switcher. /bootstrap carries the live user, so it replaces it.
+    this.config.load().subscribe({
+      next: (bootstrap) => {
+        if (bootstrap.user && bootstrap.user.id === this.currentUserSignal()?.id) this.storeUser(bootstrap.user);
+      },
+      error: () => {},
+    });
   }
 
   hasPermission(key: string): boolean {
@@ -290,11 +306,13 @@ export class AuthService {
   fetchCurrentUser(): Observable<User> {
     return this.http.get<{ user: User }>(`${API_BASE_URL}/auth/me`).pipe(
       map((res) => res.user),
-      tap((user) => {
-        localStorage.setItem(USER_KEY, JSON.stringify(user));
-        this.currentUserSignal.set(user);
-      })
+      tap((user) => this.storeUser(user))
     );
+  }
+
+  private storeUser(user: User): void {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    this.currentUserSignal.set(user);
   }
 
   private setSession(res: AuthResponse): void {

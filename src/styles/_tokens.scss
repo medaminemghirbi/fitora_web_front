@@ -1,5 +1,5 @@
 // ============================================================================
-// GYMLY DESIGN TOKENS
+// FITORA DESIGN TOKENS
 // ----------------------------------------------------------------------------
 // The single source of truth for colour, spacing, elevation, radius, motion.
 // Light palette lives on bare :root; the dark palette is redefined both under
@@ -140,7 +140,7 @@
   color-scheme: light;
 }
 
-@mixin gymly-dark {
+@mixin fitora-dark {
   --color-primary: #b79af0;
   --color-primary-hover: #cbb4f6;
   --color-primary-active: #ded0fb;
@@ -186,7 +186,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { @include gymly-dark; }
+  :root:not([data-theme="light"]) { @include fitora-dark; }
 }
 
-:root[data-theme="dark"] { @include gymly-dark; }
+:root[data-theme="dark"] { @include fitora-dark; }

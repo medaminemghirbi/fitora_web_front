@@ -215,7 +215,7 @@
 
   <!-- Paying happens outside the app, so choosing a plan is a request, not
        a checkout. It is sent as a support ticket: the admin reads it back on
-       the support page and Gymly answers from the inbox it already reads. -->
+       the support page and Fitora answers from the inbox it already reads. -->
   @if (requestPlan(); as plan) {
     <app-modal
       [open]="true"
@@ -230,7 +230,7 @@
            } }}
       </p>
 
-      <!-- Required: payment happens off-app, so Gymly calls back to set the
+      <!-- Required: payment happens off-app, so Fitora calls back to set the
            plan up. Prefilled from the admin's profile, then the gym's. -->
       <div class="mb-3">
         <label class="form-label" for="upgrade-phone">

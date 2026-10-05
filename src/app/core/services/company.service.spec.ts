@@ -65,6 +65,15 @@ describe("CompanyService", () => {
   });
 
 
+  it("updateBranding sends a signature file, clears text with an empty string, and flags a removal", () => {
+    const signature = new File(["x"], "sig.png", { type: "image/png" });
+    service.updateBranding({ signature, signatory_name: "", remove_signature: true }).subscribe();
+    const body = httpMock.expectOne(`${API_BASE_URL}/company`).request.body as FormData;
+    expect(body.get("company[signature]")).toEqual(jasmine.any(File));
+    expect(body.get("company[signatory_name]")).toBe("");
+    expect(body.get("company[remove_signature]")).toBe("true");
+  });
+
   it("publish POSTs whether the gym is listed", () => {
     service.publish(true).subscribe();
     const req = httpMock.expectOne(`${API_BASE_URL}/company/publish`);

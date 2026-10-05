@@ -71,7 +71,7 @@ describe("VerifyEmailComponent", () => {
 
   it("tells the waiting screen in another tab at once", () => {
     const posted: unknown[] = [];
-    const listener = new BroadcastChannel("gymly-auth");
+    const listener = new BroadcastChannel("fitora-auth");
     spyOn(BroadcastChannel.prototype, "postMessage").and.callFake((m: unknown) => posted.push(m));
 
     build("tok123");

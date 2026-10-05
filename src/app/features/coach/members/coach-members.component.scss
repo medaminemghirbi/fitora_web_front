@@ -68,6 +68,14 @@
 }
 
 // Someone who has stopped coming. Stated in words, not just a colour.
+.coach-member-health {
+  margin: 2px 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-warning);
+  white-space: pre-line;
+}
+
 .coach-member-flag {
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-pill, 999px);

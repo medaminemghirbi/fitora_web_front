@@ -77,4 +77,19 @@ describe("ContractsService", () => {
     expect(req.request.responseType).toBe("blob");
     req.flush(new Blob());
   });
+
+  it("agreement GETs the contract PDF as a blob", () => {
+    service.agreement("ct1").subscribe();
+    const req = httpMock.expectOne(`${API_BASE_URL}/contracts/ct1/agreement`);
+    expect(req.request.responseType).toBe("blob");
+    req.flush(new Blob());
+  });
+
+  it("renew sends the formule to move onto, when there is one", () => {
+    service.renew("ct1", { contract_type_id: "p2", activity_id: "a1" }).subscribe();
+    const req = httpMock.expectOne(`${API_BASE_URL}/contracts/ct1/renew`);
+    expect(req.request.body).toEqual({ contract_type_id: "p2", activity_id: "a1" });
+    req.flush({ contract: {} });
+  });
 });
+

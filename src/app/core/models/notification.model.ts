@@ -11,7 +11,8 @@ export type NotificationKind =
   // A member's own, on their app.
   | "session_cancelled"
   | "waitlist_promoted"
-  | "subscription_expiring";
+  | "subscription_expiring"
+  | "session_reminder";
 
 export interface AppNotification {
   id: string;

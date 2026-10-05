@@ -94,7 +94,7 @@ describe("SettingsBrandingComponent", () => {
     component.form.patchValue({ slug: "", primary_color: "" });
     companyService.updateBranding.and.returnValue(of({ company: { ...company, logo_url: null } }));
     component.submit();
-    expect(companyService.updateBranding).toHaveBeenCalledWith({ slug: null, primary_color: null, logo: null });
+    expect(companyService.updateBranding).toHaveBeenCalledWith(jasmine.objectContaining({ slug: null, primary_color: null, logo: null }));
     expect(component.logoUrl()).toBeNull();
   });
 
@@ -103,4 +103,78 @@ describe("SettingsBrandingComponent", () => {
     component.submit();
     expect(component.formError()).toBeTruthy();
   });
+
+  describe("what contracts are signed with", () => {
+    it("loads the signature, the signatory and the terms", () => {
+      companyService.get.and.returnValue(of({
+        company: { ...company, signature_url: "/sig.png", signatory_name: "Sami, gérant", contract_terms: "Serviette obligatoire." },
+      }));
+      component.ngOnInit();
+
+      expect(component.signatureUrl()).toBe(`${API_ORIGIN}/sig.png`);
+      expect(component.form.value.signatory_name).toBe("Sami, gérant");
+      expect(component.form.value.contract_terms).toBe("Serviette obligatoire.");
+    });
+
+    it("refuses a signature the PDF could not print", () => {
+      const input = document.createElement("input");
+      const file = new File(["x"], "sig.webp", { type: "image/webp" });
+      Object.defineProperty(input, "files", { value: [file] });
+
+      component.onSignatureSelected({ target: input } as unknown as Event);
+
+      expect(component.signatureError()).toBeTruthy();
+      expect(component.selectedSignature()).toBeNull();
+    });
+
+    it("sends a new signature with the signatory and the terms", () => {
+      const input = document.createElement("input");
+      const file = new File(["x"], "sig.png", { type: "image/png" });
+      Object.defineProperty(input, "files", { value: [file] });
+      component.onSignatureSelected({ target: input } as unknown as Event);
+      component.form.patchValue({ signatory_name: " Sami ", contract_terms: "" });
+      companyService.updateBranding.and.returnValue(of({ company: { ...company, signature_url: "/sig.png" } }));
+
+      component.submit();
+
+      expect(companyService.updateBranding).toHaveBeenCalledWith(jasmine.objectContaining({
+        signature: file, remove_signature: false, signatory_name: "Sami", contract_terms: "",
+      }));
+      expect(component.signatureUrl()).toBe(`${API_ORIGIN}/sig.png`);
+      expect(component.selectedSignature()).toBeNull();
+    });
+
+    it("is signed on the pad by default, and keeps what was drawn to send", (done) => {
+      expect(component.signatureMode()).toBe("draw");
+      const drawn = new File(["x"], "signature.png", { type: "image/png" });
+
+      component.onSignatureDrawn(drawn);
+
+      expect(component.selectedSignature()).toBe(drawn);
+      setTimeout(() => {
+        expect(component.signaturePreview()).toContain("data:image/png");
+        done();
+      }, 50);
+    });
+
+    it("forgets the drawing when the pad is cleared", () => {
+      component.onSignatureDrawn(new File(["x"], "signature.png", { type: "image/png" }));
+      component.onSignatureDrawn(null);
+
+      expect(component.selectedSignature()).toBeNull();
+      expect(component.signaturePreview()).toBeNull();
+    });
+
+    it("takes the saved signature off", () => {
+      component.signatureUrl.set("/sig.png");
+      component.clearSignature();
+      companyService.updateBranding.and.returnValue(of({ company: { ...company, signature_url: null } }));
+
+      component.submit();
+
+      expect(companyService.updateBranding).toHaveBeenCalledWith(jasmine.objectContaining({ remove_signature: true }));
+      expect(component.signatureUrl()).toBeNull();
+    });
+  });
 });
+

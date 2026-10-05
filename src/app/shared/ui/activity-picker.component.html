@@ -1,0 +1,95 @@
+<div class="ap">
+  <div class="ap-bar">
+    <div class="fx-input-icon ap-search">
+      <i class="bi bi-search" aria-hidden="true"></i>
+      <input type="search" class="form-control" [ngModel]="search()" (ngModelChange)="search.set($event)"
+             [placeholder]="'activity_catalogue.search' | translate" [attr.aria-label]="'activity_catalogue.search' | translate" />
+    </div>
+    <p class="ap-count" aria-live="polite">
+      @if (count() === 0) {
+        {{ "activity_catalogue.none_selected" | translate }}
+      } @else {
+        <strong>{{ "activity_catalogue.n_selected" | translate: { count: count() } }}</strong>
+      }
+    </p>
+  </div>
+
+  <!-- What the gym named itself, ahead of the catalogue so it stays in view. -->
+  @if (custom().length > 0) {
+    <ul class="ap-chips" [attr.aria-label]="'activity_catalogue.yours' | translate">
+      @for (entry of custom(); track $index) {
+        <li class="ap-chip">
+          @if (entry.emoji) { <span aria-hidden="true">{{ entry.emoji }}</span> }
+          {{ entry.name }}
+          <button type="button" class="ap-chip-x" (click)="removeCustom($index)"
+                  [attr.aria-label]="('common.remove' | translate) + ' ' + entry.name">
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
+          </button>
+        </li>
+      }
+    </ul>
+  }
+
+  @for (group of groups(); track group.family) {
+    <section class="ap-family">
+      <h3 class="ap-family-title">{{ familyLabel(group.family) | translate }}</h3>
+      <div class="ap-grid">
+        @for (tile of group.tiles; track tile.template.id) {
+          <button type="button" class="ap-tile" role="checkbox"
+                  [class.is-on]="isSelected(tile.template.id)"
+                  [attr.aria-checked]="isSelected(tile.template.id)"
+                  (click)="toggle(tile.template)">
+            <span class="ap-check" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
+            <span class="ap-emoji" aria-hidden="true">{{ tile.template.emoji || "•" }}</span>
+            <span class="ap-name">{{ tile.name }}</span>
+            <span class="ap-meta">
+              {{ tile.template.duration }} min ·
+              @if (tile.template.capacity > 1) {
+                {{ tile.template.capacity }} {{ "activities.capacity_short" | translate }}
+              } @else {
+                {{ "activity_catalogue.one_to_one" | translate }}
+              }
+            </span>
+            @if (isAdopted(tile.template.id)) {
+              <span class="ap-adopted">{{ "activity_catalogue.already_added" | translate }}</span>
+            }
+          </button>
+        }
+      </div>
+    </section>
+  }
+
+  @if (groups().length === 0) {
+    <p class="ap-empty">{{ "activity_catalogue.no_match" | translate: { term: search() } }}</p>
+  }
+
+  @if (allowCustom()) {
+    @if (customOpen()) {
+      <div class="ap-custom">
+        <label for="ap-custom-name">{{ "activity_catalogue.custom_name" | translate }}</label>
+        <input id="ap-custom-name" class="form-control" maxlength="60" [ngModel]="customName()" (ngModelChange)="customName.set($event)"
+               (keydown.enter)="$event.preventDefault(); addCustom()" />
+        <div class="ap-emojis" role="group" [attr.aria-label]="'activities.emoji' | translate">
+          @for (emoji of emojiChoices; track emoji) {
+            <button type="button" class="ap-emoji-btn" [class.is-on]="customEmoji() === emoji" [attr.aria-pressed]="customEmoji() === emoji"
+                    (click)="pickEmoji(emoji)">{{ emoji }}</button>
+          }
+        </div>
+        <div class="ap-custom-actions">
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="customOpen.set(false)">{{ "common.cancel" | translate }}</button>
+          <button type="button" class="btn btn-primary btn-sm" [disabled]="!customName().trim()" (click)="addCustom()">
+            {{ "activity_catalogue.custom_add" | translate }}
+          </button>
+        </div>
+      </div>
+    } @else {
+      <button type="button" class="ap-other" (click)="openCustom()">
+        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+        <span>
+          <strong>{{ "activity_catalogue.other" | translate }}</strong>
+          <small>{{ "activity_catalogue.other_hint" | translate }}</small>
+        </span>
+      </button>
+    }
+  }
+</div>

@@ -1,9 +1,9 @@
 export type BillingPeriod = "monthly" | "yearly";
 
 /**
- * The two plans Gymly sells, to the admin's account. Starter is the whole
+ * The two plans Fitora sells, to the admin's account. Starter is the whole
  * product for one salle; Pro adds several salles (one price however many),
- * the member app, and every update Gymly ships.
+ * the member app, and every update Fitora ships.
  */
 export type PlanKey = "starter" | "pro";
 export const PLAN_KEYS: PlanKey[] = ["starter", "pro"];
@@ -12,7 +12,7 @@ export const PLAN_KEYS: PlanKey[] = ["starter", "pro"];
 export type LockReason = "suspended" | "unpaid" | null;
 
 /**
- * An admin account's access to Gymly — one for every salle it runs.
+ * An admin account's access to Fitora — one for every salle it runs.
  *
  * `active` IS the access — nothing computes a date to read it. Everything
  * else here is what the invoices say, for the screens that show a countdown.

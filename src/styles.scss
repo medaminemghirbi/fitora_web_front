@@ -1,5 +1,5 @@
 // Bootstrap is gone. Its components were already fully restyled in
-// styles/gymly, so the framework was shipping a stylesheet whose every
+// styles/fitora, so the framework was shipping a stylesheet whose every
 // visible rule we overrode; what was genuinely in use was a bounded set of
 // layout utilities and five small components, now styles/utilities and
 // styles/leftovers. The icon font stays — it is a font, not a framework.
@@ -11,8 +11,8 @@
 // The element reset the component layer assumes. Was Bootstrap's Reboot.
 @import "styles/reset";
 @import "styles/utilities";
-// Gymly's own component layer, one file per concern. Was a single 1208-line
-// _gymly.scss, which is why screens drifted: nobody could see what was
+// Fitora's own component layer, one file per concern. Was a single 1208-line
+// _fitora.scss, which is why screens drifted: nobody could see what was
 // already there before writing it again.
 @import "styles/components/base";
 @import "styles/components/buttons";

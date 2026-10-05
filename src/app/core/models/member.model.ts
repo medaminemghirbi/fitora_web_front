@@ -17,6 +17,10 @@ export interface MemberSession {
   capacity: number;
   /** Room left, never how many people are in it. */
   spots_left: number;
+  /** A one-to-one slot (EMS, personal training): an appointment to take, not a class to join. */
+  individual?: boolean;
+  /** The room or cabin it runs in, for a gym that has them. */
+  space_name?: string | null;
   full: boolean;
   already_booked: boolean;
 }

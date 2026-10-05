@@ -6,7 +6,7 @@ export interface CompanyBranding {
   name: string;
   primary_color: string | null;
   logo_url: string | null;
-  // Tenant-wide display settings (Gymly-superadmin managed) — the app language
+  // Tenant-wide display settings (Fitora-superadmin managed) — the app language
   // and the currency shown next to amounts.
   locale: string;
   currency: string;
@@ -22,7 +22,7 @@ export class BrandingService {
   // Called once from the admin/coach shells after login — never from the
   // superadmin shell (a platform superadmin manages many companies, so there's no
   // single brand to apply there) and never from public pages (landing,
-  // login, register stay Gymly-branded since no company is known yet).
+  // login, register stay Fitora-branded since no company is known yet).
   // Uses GET /api/v1/branding rather than CompanyService — that endpoint is
   // admin-only, but every staff role needs to see the company's branding.
   // A member belongs to several gyms, so theirs is named explicitly; a staff
@@ -32,7 +32,7 @@ export class BrandingService {
     this.http.get<{ branding: CompanyBranding }>(`${API_BASE_URL}/branding`, { params }).subscribe({
       next: (res) => this.apply(res.branding),
       error: () => {
-        // Keep default Gymly branding if this fails for any reason —
+        // Keep default Fitora branding if this fails for any reason —
         // never leave the shell without a usable header.
       },
     });
@@ -44,8 +44,8 @@ export class BrandingService {
 
   apply(branding: CompanyBranding): void {
     this.branding.set(branding);
-    // The tab title stays "Gymly" (set statically in index.html) — the shell
-    // header and title are Gymly-branded regardless of the company. The
+    // The tab title stays "Fitora" (set statically in index.html) — the shell
+    // header and title are Fitora-branded regardless of the company. The
     // company name still travels in `branding` for documents / the mobile app.
 
     if (!branding.primary_color) return;

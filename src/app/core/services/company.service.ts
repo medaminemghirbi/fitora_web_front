@@ -2,6 +2,7 @@ import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
 import { API_BASE_URL } from "../models/api-config";
+import { CustomActivity } from "../models/activity-template.model";
 import { Company } from "../models/company.model";
 import { CompanySummary } from "../models/user.model";
 
@@ -41,8 +42,14 @@ export class CompanyService {
   // The admin's first salle, or another under the same login — as many as
   // they like on Pro (or the trial), one on Starter; the backend refuses
   // the rest with 403 multi_salle_not_included. Becomes the active company.
-  create(payload: Partial<Company>): Observable<{ company: Company }> {
-    return this.http.post<{ company: Company }>(`${API_BASE_URL}/companies`, { company: payload });
+  //
+  // What it teaches can come in the same request — templates picked from
+  // the catalogue and activities it names itself — so it opens ready to sell.
+  create(
+    payload: Partial<Company>,
+    activities: { activity_template_ids?: string[]; custom_activities?: CustomActivity[] } = {}
+  ): Observable<{ company: Company }> {
+    return this.http.post<{ company: Company }>(`${API_BASE_URL}/companies`, { company: payload, ...activities });
   }
 
   // Every salle this login can switch between — the navbar switcher's data
@@ -77,11 +84,23 @@ export class CompanyService {
   // Separate from update() because it may carry a logo File and so needs
   // multipart/form-data — the plain company-profile form above never
   // uploads a file and stays on the simpler JSON path.
-  updateBranding(payload: { slug?: string | null; primary_color?: string | null; logo?: File | null }): Observable<{ company: Company }> {
+  //
+  // Also carries what contracts are signed with: the signature image, the
+  // signatory's name and the gym's own clauses. An empty string clears a
+  // text field; `remove_signature` takes the image off.
+  updateBranding(payload: {
+    slug?: string | null;
+    primary_color?: string | null;
+    logo?: File | null;
+    signature?: File | null;
+    remove_signature?: boolean;
+    signatory_name?: string | null;
+    contract_terms?: string | null;
+  }): Observable<{ company: Company }> {
     const formData = new FormData();
     Object.entries(payload).forEach(([key, value]) => {
-      if (value === undefined || value === null) return;
-      formData.append(`company[${key}]`, value as string | File);
+      if (value === undefined || value === null || value === false) return;
+      formData.append(`company[${key}]`, value instanceof File ? value : String(value));
     });
     return this.http.patch<{ company: Company }>(`${API_BASE_URL}/company`, formData);
   }

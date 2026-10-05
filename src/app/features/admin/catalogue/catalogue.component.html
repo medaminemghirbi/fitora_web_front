@@ -1,20 +1,98 @@
 <div class="fx-page">
-  <header class="cat-head">
-    <h1>{{ "catalogue.title" | translate }}</h1>
-    <p>{{ "catalogue.subtitle" | translate }}</p>
-  </header>
+  <app-page-header [title]="'catalogue.title' | translate" [description]="'catalogue.subtitle' | translate" />
 
-  <!-- Plans lead: they are what a member buys. Activities are what a plan is
-       priced for, so they sit beside it rather than a menu entry away. -->
-  <div class="cat">
-    <section class="cat-main" aria-labelledby="cat-plans-h">
-      <h2 id="cat-plans-h" class="cat-label">{{ "nav.plans" | translate }}</h2>
-      <app-plans [embedded]="true" />
-    </section>
+  <nav class="nav nav-tabs cat-tabs" role="tablist" [attr.aria-label]="'catalogue.title' | translate">
+    @for (t of tabs(); track t.key) {
+      <button type="button" class="nav-link" role="tab" [class.active]="tab() === t.key" [attr.aria-selected]="tab() === t.key"
+              (click)="select(t.key)">
+        <i class="bi" [class]="t.icon" aria-hidden="true"></i>
+        {{ t.labelKey | translate }}
+        @if (t.count !== null && !store.loading()) {
+          <span class="cat-tab-count">{{ t.count }}</span>
+        }
+      </button>
+    }
+  </nav>
 
-    <section class="cat-side" aria-labelledby="cat-activities-h">
-      <h2 id="cat-activities-h" class="cat-label">{{ "nav.activities" | translate }}</h2>
-      <app-activities [embedded]="true" />
-    </section>
+  <div role="tabpanel">
+    @switch (tab()) {
+      @case ("activites") { <app-activities [embedded]="true" /> }
+      @case ("formules") { <app-plans [embedded]="true" (requestCreate)="start($event)" /> }
+      @case ("packs") { <app-packs (requestCreate)="start($event)" /> }
+      @default {
+        @if (store.loading()) {
+          <div class="app-card"><div class="app-card-body"><app-skeleton variant="table" [rows]="4" [cols]="4" /></div></div>
+        } @else if (store.error()) {
+          <div class="app-card"><div class="app-card-body"><app-error-state (retry)="store.reload()" /></div></div>
+        } @else if (ready()) {
+          <app-price-grid (requestCreate)="start($event)" />
+        } @else {
+          <!-- One way in, in the order it has to be done. The two empty
+               columns this replaces each offered a "create" button twice,
+               and the formule one was greyed out without saying why. -->
+          <section class="cat-setup" aria-labelledby="cat-setup-h">
+            <header class="cat-setup-head">
+              <h2 id="cat-setup-h">{{ "catalogue.setup_title" | translate }}</h2>
+              <p>{{ "catalogue.setup_body" | translate }}</p>
+            </header>
+
+            <ol class="cat-steps">
+              <li class="cat-step" [class.is-done]="activityCount() > 0">
+                <span class="cat-step-mark" aria-hidden="true">
+                  @if (activityCount() > 0) { <i class="bi bi-check-lg"></i> } @else { 1 }
+                </span>
+                <div class="cat-step-body">
+                  <h3>{{ "nav.activities" | translate }}</h3>
+                  <p>{{ "catalogue.step_activities" | translate }}</p>
+                  @if (activityCount() > 0) {
+                    <p class="cat-step-state">{{ "catalogue.n_activities" | translate: { count: activityCount() } }}</p>
+                  }
+                </div>
+                @if (activityCount() > 0) {
+                  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="select('activites')">{{ "catalogue.see" | translate }}</button>
+                } @else {
+                  <button type="button" class="btn btn-primary btn-sm" (click)="start('activity')">
+                    <i class="bi bi-grid-3x3-gap"></i> {{ "activity_catalogue.pick" | translate }}
+                  </button>
+                }
+              </li>
+
+              <li class="cat-step" [class.is-done]="planCount() > 0" [class.is-locked]="activityCount() === 0">
+                <span class="cat-step-mark" aria-hidden="true">
+                  @if (planCount() > 0) { <i class="bi bi-check-lg"></i> } @else { 2 }
+                </span>
+                <div class="cat-step-body">
+                  <h3>{{ "nav.plans" | translate }}</h3>
+                  <p>{{ "catalogue.step_plans" | translate }}</p>
+                  @if (activityCount() === 0) {
+                    <p class="cat-step-state is-muted"><i class="bi bi-lock"></i> {{ "catalogue.needs_activity" | translate }}</p>
+                  }
+                </div>
+                <button type="button" class="btn btn-sm" [class.btn-primary]="activityCount() > 0" [class.btn-outline-secondary]="activityCount() === 0"
+                        [disabled]="activityCount() === 0" (click)="start('plan')">
+                  <i class="bi bi-plus-lg"></i> {{ "contract_types.new" | translate }}
+                </button>
+              </li>
+
+              <li class="cat-step" [class.is-done]="packCount() > 0" [class.is-locked]="activityCount() < 2">
+                <span class="cat-step-mark" aria-hidden="true">
+                  @if (packCount() > 0) { <i class="bi bi-check-lg"></i> } @else { 3 }
+                </span>
+                <div class="cat-step-body">
+                  <h3>{{ "catalogue.tab_packs" | translate }} <span class="cat-optional">{{ "catalogue.optional" | translate }}</span></h3>
+                  <p>{{ "catalogue.step_packs" | translate }}</p>
+                  @if (activityCount() < 2) {
+                    <p class="cat-step-state is-muted"><i class="bi bi-lock"></i> {{ "packs.needs_two" | translate }}</p>
+                  }
+                </div>
+                <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="activityCount() < 2" (click)="start('pack')">
+                  <i class="bi bi-plus-lg"></i> {{ "packs.new" | translate }}
+                </button>
+              </li>
+            </ol>
+          </section>
+        }
+      }
+    }
   </div>
 </div>

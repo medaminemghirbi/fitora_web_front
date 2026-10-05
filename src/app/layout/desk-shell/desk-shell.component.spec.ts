@@ -37,7 +37,7 @@ describe("DeskShellComponent", () => {
   beforeEach(async () => {
     companies = jasmine.createSpyObj<CompanyService>("CompanyService", ["switchTo"]);
     companies.switchTo.and.returnValue(of({ company: {} }) as never);
-    currentUser = jasmine.createSpy("currentUser").and.returnValue({ full_name: "Desk", email: "desk@gymly.test" });
+    currentUser = jasmine.createSpy("currentUser").and.returnValue({ full_name: "Desk", email: "desk@fitora.test" });
 
     clients = jasmine.createSpyObj<ClientsService>("ClientsService", ["list"]);
     clients.list.and.returnValue(of({ clients: [client()], meta: { page: 1, per_page: 6, total: 1, total_pages: 1 }, counts: {} }) as never);
@@ -141,7 +141,7 @@ describe("DeskShellComponent", () => {
     ];
 
     function withSalles(list: typeof salles | null): DeskShellComponent {
-      currentUser.and.returnValue({ full_name: "Desk", email: "desk@gymly.test", companies: list });
+      currentUser.and.returnValue({ full_name: "Desk", email: "desk@fitora.test", companies: list });
       const fresh = TestBed.createComponent(DeskShellComponent);
       fresh.detectChanges();
       return fresh.componentInstance;

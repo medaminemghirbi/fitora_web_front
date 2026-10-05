@@ -88,8 +88,14 @@ describe("SallesComponent", () => {
       expect(component.creating()).toBeFalse();
     });
 
-    it("still lists and switches between the salles it already runs", () => {
-      expect(fixture.nativeElement.querySelectorAll(".sl-card:not(.sl-card--add)").length).toBe(2);
+    it("still lists the salles it already runs, but switching is Pro", () => {
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelectorAll(".sl-card:not(.sl-card--add)").length).toBe(2);
+      expect(el.querySelector(".sl-card-foot a[href='/admin/subscription']")).not.toBeNull();
+
+      const other = component.salles().find((s) => !s.active)!;
+      component.switchTo(other);
+      expect(service.switchTo).not.toHaveBeenCalled();
     });
   });
 

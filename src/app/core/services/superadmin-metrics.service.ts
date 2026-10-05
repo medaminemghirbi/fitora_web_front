@@ -25,7 +25,7 @@ export interface PlatformMetrics {
     bookings_last_30_days: number;
     companies_with_activity: number;
   };
-  /** Gymly's own money, in cents, never a gym's takings. */
+  /** Fitora's own money, in cents, never a gym's takings. */
   money: {
     invoiced_this_month_cents: number;
     arrears_cents: number;

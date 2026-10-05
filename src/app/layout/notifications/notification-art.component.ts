@@ -9,6 +9,7 @@ const EMOJI: Record<NotificationKind, string> = {
   session_cancelled: "🚫",
   waitlist_promoted: "🎟️",
   subscription_expiring: "⏳",
+  session_reminder: "⏰",
 };
 
 /**

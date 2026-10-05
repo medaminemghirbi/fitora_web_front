@@ -21,7 +21,7 @@ export const POLL_MS = 4000;
  */
 export const CONTINUE_DELAY_MS = 3600;
 /** Tabs of this app tell each other the link was clicked on this channel. */
-export const AUTH_CHANNEL = "gymly-auth";
+export const AUTH_CHANNEL = "fitora-auth";
 
 export interface Mailbox {
   name: string;
@@ -33,7 +33,7 @@ export interface Mailbox {
  * straight to the inbox beats "go and find your mail".
  */
 const MAILBOXES: { match: RegExp; name: string; url: string }[] = [
-  { match: /^(gmail|googlemail)\.com$/, name: "Gmail", url: "https://mail.google.com/mail/u/0/#search/from%3Agymly.io" },
+  { match: /^(gmail|googlemail)\.com$/, name: "Gmail", url: "https://mail.google.com/mail/u/0/#search/from%3Afitora.io" },
   { match: /^(outlook|hotmail|live|msn)\.[a-z.]+$/, name: "Outlook", url: "https://outlook.live.com/mail/0/" },
   { match: /^(yahoo|ymail)\.[a-z.]+$/, name: "Yahoo Mail", url: "https://mail.yahoo.com/" },
   { match: /^(icloud|me|mac)\.com$/, name: "iCloud Mail", url: "https://www.icloud.com/mail" },

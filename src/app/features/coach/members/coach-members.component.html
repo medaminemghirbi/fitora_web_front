@@ -39,6 +39,13 @@
 
         <div class="coach-member-body">
           <strong>{{ member.full_name }}</strong>
+          <!-- Before an EMS suit or a reformer, this is what the coach must
+               not find out afterwards. -->
+          @if (member.health_notes) {
+            <span class="coach-member-health">
+              <i class="bi bi-heart-pulse" aria-hidden="true"></i> {{ member.health_notes }}
+            </span>
+          }
           <small>
             @if (member.next_session_at) {
               {{ "coach.members.next" | translate: { when: (member.next_session_at | date: "EEE d MMM, HH:mm") } }}

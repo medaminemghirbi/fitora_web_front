@@ -122,6 +122,7 @@
                     <div class="fx-muted" style="font-size: var(--font-size-xs)">
                       {{ m.activity?.emoji ? m.activity!.emoji + " " : "" }}{{ m.activity_label }}
                     </div>
+                    <div class="fx-contract-ref" dir="ltr" [innerHTML]="m.invoice_ref | highlight: search()"></div>
                   </td>
                   <!-- What they pay, and only when it differs from the
                        catalogue price, what it was before the discount.
@@ -129,28 +130,40 @@
                        own buttons off the end of the table. -->
                   <td class="text-end fx-num fw-semibold">
                     {{ m.final_price | money: m.plan.currency }}
-                    @if (m.discount) {
+                    @if (+m.discount > 0) {
                       <div class="fx-cell-sub text-warning-token">
                         {{ m.base_price | money: m.plan.currency }} − {{ m.discount | money: m.plan.currency }}
                       </div>
                     }
                   </td>
-                  <!-- The term in force, and under it whatever has already
-                       been renewed behind it. Renewing early never rewrites
-                       the running term, so the row has to show both or it
-                       looks like the renewal did nothing. -->
+                  <!-- The term's dates, and under them how it links to the
+                       next: a running term already renewed says so, and the
+                       renewal itself — a row of its own — says it is
+                       waiting its turn. Without both the renewal looks like
+                       it did nothing. -->
                   <td class="fx-num fx-cell-period">
                     {{ (m.starts_at | date: "dd/MM/yy") || "—" }}
                     <span class="fx-muted">→</span>
                     {{ (m.expires_at | date: "dd/MM/yy") || "—" }}
-                    @if (m.upcoming_periods.length) {
+                    @if (m.renewal; as next) {
                       <div class="fx-cell-sub fx-renewal-queued">
                         <i class="bi bi-arrow-repeat"></i>
-                        {{ "contracts.renewed_until" | translate: { date: (renewedThrough(m) | date: "dd/MM/yy") } }}
+                        {{ "contracts.renewed_until" | translate: { date: (next.expires_at | date: "dd/MM/yy") } }}
+                      </div>
+                    } @else if (isQueuedRenewal(m)) {
+                      <div class="fx-cell-sub fx-renewal-queued">
+                        <i class="bi bi-hourglass-split"></i>
+                        {{ "contracts.queued_renewal" | translate }}
                       </div>
                     }
                   </td>
-                  <td><app-status-badge [status]="m.status">{{ ("contract.status_" + m.status) | translate }}</app-status-badge></td>
+                  <td>
+                    @if (m.paused) {
+                      <app-status-badge status="paused">{{ "contract.status_paused" | translate }}</app-status-badge>
+                    } @else {
+                      <app-status-badge [status]="m.status">{{ ("contract.status_" + m.status) | translate }}</app-status-badge>
+                    }
+                  </td>
                   <td><app-status-badge [status]="m.payment_status">{{ ("payments.status_" + m.payment_status) | translate }}</app-status-badge></td>
                   <td class="text-end">
                     <!-- The two things the dashboard sends people here to do,
@@ -163,15 +176,30 @@
                           {{ "payments.collect" | translate }}
                         </button>
                       }
-                      @if (m.status === "active" || m.status === "expired") {
+                      <!-- Only the latest term, from 10 days before its end:
+                           earlier, or on a term already renewed, there is
+                           nothing to sell yet (Contract#renewable?). -->
+                      @if (m.renewable) {
                         <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="rowBusy() !== null" (click)="renew(m)">
                           {{ "contracts.renew" | translate }}
                         </button>
                       }
                       <app-action-menu>
+                        <button type="button" class="fx-menu-item" (click)="downloadAgreement(m)">
+                          <i class="bi bi-file-earmark-text"></i> {{ "contracts.download_agreement" | translate }}
+                        </button>
+                        <button type="button" class="fx-menu-item" (click)="downloadInvoice(m)">
+                          <i class="bi bi-receipt"></i> {{ "contracts.download_invoice" | translate }}
+                        </button>
                         <a class="fx-menu-item" [routerLink]="['/admin/clients', m.client.id]">
                           <i class="bi bi-person"></i> {{ "contracts.view_client" | translate }}
                         </a>
+                        @if (m.status === "active") {
+                          <button type="button" class="fx-menu-item" [disabled]="rowBusy() !== null" (click)="togglePause(m)">
+                            <i class="bi" [class.bi-pause-circle]="!m.paused" [class.bi-play-circle]="m.paused"></i>
+                            {{ (m.paused ? "contracts.resume" : "contracts.pause") | translate }}
+                          </button>
+                        }
                       </app-action-menu>
                     </div>
                   </td>
@@ -186,3 +214,52 @@
     </div>
   </div>
 </div>
+
+<!-- A renewal is a new contract, so the member can move onto another
+     formule here; it opens on the one they are on. -->
+<app-modal [open]="renewing() !== null" [title]="'contracts.renew_title' | translate" (closed)="closeRenew()">
+  @if (renewing(); as m) {
+    <p class="fx-muted" style="font-size: 0.875rem">
+      {{ "contracts.renew_confirm_body_for" | translate: { name: m.client.full_name } }}
+    </p>
+    <div class="mb-3">
+      <label for="rn-plan">{{ "clients.abo_formula" | translate }} *</label>
+      <select id="rn-plan" class="form-select" [ngModel]="renewPlanId()" (ngModelChange)="onRenewPlanChange($event)">
+        @for (plan of plans(); track plan.id) {
+          <option [ngValue]="plan.id">{{ plan.name }} — {{ ("contract_types.period_" + plan.billing_period) | translate: { days: plan.validity_days } }}</option>
+        }
+      </select>
+    </div>
+    @if (!(renewSameFormule() && m.all_access)) {
+      <div class="mb-3">
+        <label for="rn-item">{{ "clients.abo_activity_or_pack" | translate }} *</label>
+        <select id="rn-item" class="form-select" [ngModel]="renewItem()" (ngModelChange)="renewItem.set($event)">
+          <option [ngValue]="null" disabled>—</option>
+          @for (i of renewItems(); track i.key) {
+            <option [ngValue]="i.key">{{ i.label }}</option>
+          }
+        </select>
+      </div>
+    }
+    @if (!renewSameFormule()) {
+      <p class="fx-muted" style="font-size: 0.8125rem">{{ "contracts.renew_other_formule_hint" | translate }}</p>
+    }
+    @if (renewBlocked()) {
+      <div class="alert alert-warning">
+        {{ "clients.abo_no_price" | translate }}
+        <a routerLink="/admin/catalogue">{{ "clients.abo_no_price_link" | translate }}</a>
+      </div>
+    } @else if (renewPrice() !== null) {
+      <div class="abo-total-line mb-3">
+        <span>{{ "clients.abo_total" | translate }}</span>
+        <strong>{{ renewPrice() | money: renewPlan()?.currency ?? currency() }}</strong>
+      </div>
+    }
+    <div class="d-flex justify-content-end gap-2 mt-4">
+      <button type="button" class="btn btn-outline-secondary" (click)="closeRenew()">{{ "common.cancel" | translate }}</button>
+      <button type="button" class="btn btn-primary" [disabled]="rowBusy() !== null || renewBlocked()" (click)="confirmRenew()">
+        {{ "contracts.renew" | translate }}
+      </button>
+    </div>
+  }
+</app-modal>

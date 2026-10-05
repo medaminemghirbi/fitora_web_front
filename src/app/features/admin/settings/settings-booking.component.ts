@@ -1,6 +1,7 @@
 import { Component, OnInit, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { TranslateModule, TranslateService } from "@ngx-translate/core";
+import { ConfigurationService } from "../../../core/configuration/configuration.service";
 import { CompanySettings } from "../../../core/models/company.model";
 import { CompanyService } from "../../../core/services/company.service";
 import { extractErrorMessage } from "../../../core/services/error.util";
@@ -40,8 +41,12 @@ export class SettingsBookingComponent implements OnInit {
   /** Cancellation windows a gym would actually pick. */
   readonly windows = [0, 2, 6, 12, 24, 48];
 
+  /** When a member hears about their session. 0 = no reminder. */
+  readonly reminderWindows = [0, 2, 12, 24, 48];
+
   constructor(
     private readonly companyService: CompanyService,
+    private readonly configuration: ConfigurationService,
     private readonly toast: ToastService,
     private readonly translate: TranslateService
   ) {}
@@ -101,6 +106,9 @@ export class SettingsBookingComponent implements OnInit {
         this.settings.set(res.company.settings);
         this.saving.set(false);
         this.toast.success(this.translate.instant("common.saved"));
+        // A feature switch changes what the menus and the catalogue offer
+        // (rooms, packs), which they read from the bootstrap payload.
+        if ("features" in patch) this.configuration.load().subscribe({ error: () => undefined });
       },
       error: (err) => {
         this.saving.set(false);

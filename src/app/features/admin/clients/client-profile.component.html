@@ -23,12 +23,15 @@
           @if (contract.expires_at) {
             · {{ "clients.until" | translate: { date: (contract.expires_at | date: "d MMM y") } }}
           }
+          @if (contract.paused) {
+            <app-status-badge status="paused">{{ "contract.status_paused" | translate }}</app-status-badge>
+          }
           <!-- A renewal taken before the term ran out queues behind it
                instead of replacing it, so say how far they are covered. -->
-          @if (contract.upcoming_periods.length) {
+          @if (contract.renewal; as next) {
             <span class="fx-renewal-queued">
               <i class="bi bi-arrow-repeat"></i>
-              {{ "contracts.renewed_until" | translate: { date: (renewedThrough(contract) | date: "d MMM y") } }}
+              {{ "contracts.renewed_until" | translate: { date: (next.expires_at | date: "d MMM y") } }}
             </span>
           }
           ·
@@ -105,11 +108,47 @@
           </button>
         }
       }
+      @if (c.current_contract; as contract) {
+        @if (contract.status === "active") {
+          <button type="button" class="fx-menu-item" [disabled]="pausing()" (click)="togglePause(contract)">
+            <i class="bi" [class.bi-pause-circle]="!contract.paused" [class.bi-play-circle]="contract.paused"></i>
+            {{ (contract.paused ? "contracts.resume" : "contracts.pause") | translate }}
+          </button>
+        }
+      }
+      <button type="button" class="fx-menu-item" (click)="openHealthModal()">
+        <i class="bi bi-heart-pulse"></i> {{ "clients.health_edit" | translate }}
+      </button>
       <button type="button" class="fx-menu-item is-danger" [disabled]="removing()" (click)="removeMember()">
         <i class="bi bi-person-x"></i> {{ "clients.remove" | translate }}
       </button>
     </app-action-menu>
   </div>
+
+  <!-- The health file. Shown above everything that happened, because it is
+       what a coach must read before putting someone in an EMS suit or on a
+       reformer — and its absence (no signed declaration) is itself a flag. -->
+  <section class="prof-health" [class.has-notes]="!!c.health_notes">
+    <i class="bi bi-heart-pulse prof-health-icon" aria-hidden="true"></i>
+    <div class="prof-health-body">
+      <h2 class="prof-label">{{ "clients.health_title" | translate }}</h2>
+      @if (c.health_notes) {
+        <p class="prof-health-notes">{{ c.health_notes }}</p>
+      } @else {
+        <p class="fx-muted mb-0">{{ "clients.health_none" | translate }}</p>
+      }
+      <p class="prof-health-waiver" [class.is-missing]="!c.waiver_signed_on">
+        @if (c.waiver_signed_on) {
+          <i class="bi bi-check2-circle" aria-hidden="true"></i>
+          {{ "clients.waiver_signed" | translate: { date: (c.waiver_signed_on | date: "d MMM y") } }}
+        } @else {
+          <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
+          {{ "clients.waiver_missing" | translate }}
+        }
+      </p>
+    </div>
+    <button type="button" class="btn btn-sm btn-outline-secondary" (click)="openHealthModal()">{{ "common.edit" | translate }}</button>
+  </section>
 
   <!-- What actually happened. One stream, because "did they come" and "did
        they pay" are the same story told about the same person. -->
@@ -149,16 +188,28 @@
     }
   </div>
 
-  <!-- Past subscriptions, only when there is more than the current one. -->
+  <!-- Every subscription this member has had here, each with its two
+       documents: the contract to sign and the invoice. -->
   <div class="prof-foot">
-    @if (aboRows().length > 1) {
+    @if (aboRows().length > 0) {
       <section>
         <h2 class="prof-label">{{ "clients.tab_contracts" | translate }}</h2>
         <ul class="prof-history">
           @for (row of aboRows(); track row.contract.id) {
             <li>
               <span>{{ row.contract.plan.name }}</span>
+              <span class="fx-contract-ref" dir="ltr">{{ row.contract.invoice_ref }}</span>
               <span class="fx-muted">{{ row.contract.starts_at | date: "MMM y" }}</span>
+              <span class="prof-history-docs">
+                <button type="button" class="icon-btn" (click)="downloadAgreement(row.contract)"
+                        [attr.aria-label]="'contracts.download_agreement' | translate" [title]="'contracts.download_agreement' | translate">
+                  <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="icon-btn" (click)="downloadReceipt(row.contract)"
+                        [attr.aria-label]="'contracts.download_invoice' | translate" [title]="'contracts.download_invoice' | translate">
+                  <i class="bi bi-receipt" aria-hidden="true"></i>
+                </button>
+              </span>
             </li>
           }
         </ul>
@@ -184,16 +235,27 @@
       <select id="ms-plan" class="form-select" formControlName="contract_type_id">
         <option [ngValue]="null" disabled>—</option>
         @for (plan of contractTypes(); track plan.id) {
-          <option [ngValue]="plan.id">{{ plan.name }} — {{ ("contract_types.period_" + plan.billing_period) | translate }}</option>
+          <option [ngValue]="plan.id">{{ plan.name }} — {{ ("contract_types.period_" + plan.billing_period) | translate: { days: plan.validity_days } }}</option>
         }
       </select>
     </div>
+    <!-- Only what the chosen formule is priced for: anything else would be
+         refused on submit. Packs sit in their own group under the activities. -->
     <div class="mb-3">
-      <label for="ms-activity">{{ "clients.abo_activity" | translate }} *</label>
-      <select id="ms-activity" class="form-select" formControlName="activity_id">
-        <option [ngValue]="null" disabled>—</option>
-        @for (a of activities(); track a.id) {
-          <option [ngValue]="a.id">{{ a.emoji ? a.emoji + " " : "" }}{{ a.name }}</option>
+      <label for="ms-activity">{{ "clients.abo_activity_or_pack" | translate }} *</label>
+      <select id="ms-activity" class="form-select" formControlName="item">
+        <option [ngValue]="null" disabled>{{ (selectedPlan() ? "—" : "clients.abo_pick_formula_first") | translate }}</option>
+        <optgroup [label]="'nav.activities' | translate">
+          @for (i of saleItems(); track i.key) {
+            @if (i.kind === "activity") { <option [ngValue]="i.key">{{ i.label }}</option> }
+          }
+        </optgroup>
+        @if (selectedPlan()?.pack_prices?.length) {
+          <optgroup [label]="'catalogue.tab_packs' | translate">
+            @for (i of saleItems(); track i.key) {
+              @if (i.kind === "pack") { <option [ngValue]="i.key">{{ i.label }}</option> }
+            }
+          </optgroup>
         }
       </select>
     </div>
@@ -209,7 +271,7 @@
     </div>
 
     @if (selectedPlan(); as plan) {
-      @if (selectedActivityPrice() === null) {
+      @if (selectedItemPrice() === null) {
         <div class="alert alert-warning">
           {{ "clients.abo_no_price" | translate }}
           <a routerLink="/admin/catalogue">{{ "clients.abo_no_price_link" | translate }}</a>
@@ -235,7 +297,7 @@
 
     <div class="d-flex justify-content-end gap-2 mt-4">
       <button type="button" class="btn btn-outline-secondary" (click)="closeContractModal()">{{ "common.cancel" | translate }}</button>
-      <button type="submit" class="btn btn-primary" [disabled]="saving() || selectedActivityPrice() === null">{{ (saving() ? "common.saving" : "clients.abo_create") | translate }}</button>
+      <button type="submit" class="btn btn-primary" [disabled]="saving() || selectedItemPrice() === null">{{ (saving() ? "common.saving" : "clients.abo_create") | translate }}</button>
     </div>
   </form>
 </app-modal>
@@ -245,7 +307,7 @@
     <div class="alert alert-danger">{{ formError() }}</div>
   }
   @if (editingContract(); as m) {
-    <p class="fx-muted" style="font-size: 0.875rem">{{ m.plan.name }} · {{ m.activity?.emoji ? m.activity!.emoji + " " : "" }}{{ m.activity_label }} · {{ ("contract_types.period_" + m.plan.billing_period) | translate }}</p>
+    <p class="fx-muted" style="font-size: 0.875rem">{{ m.plan.name }} · {{ m.activity?.emoji ? m.activity!.emoji + " " : "" }}{{ m.activity_label }} · {{ ("contract_types.period_" + m.plan.billing_period) | translate: { days: m.plan.validity_days } }}</p>
     <form [formGroup]="editForm" (ngSubmit)="submitEdit()" novalidate>
       <div class="row">
         <div class="col-6 mb-3">
@@ -304,6 +366,20 @@
         <div class="form-text mt-1">{{ "clients.no_sessions_available" | translate }}</div>
       }
     </div>
+    <!-- A studio's first contact is a trial or a single paid session, booked
+         before any contract exists. Only offered where the gym allows it. -->
+    @if (dropIn()) {
+      <fieldset class="mb-3">
+        <legend class="form-label mb-1">{{ "bookings.kind_label" | translate }}</legend>
+        @for (kind of ["contract", "trial", "drop_in"]; track kind) {
+          <div class="form-check">
+            <input [id]="'bk-kind-' + kind" type="radio" class="form-check-input" formControlName="kind" [value]="kind" />
+            <label [for]="'bk-kind-' + kind" class="form-check-label">{{ ("bookings.kind_" + kind) | translate }}</label>
+          </div>
+        }
+        <p class="form-text mb-0">{{ ("bookings.kind_" + bookingForm.controls.kind.value + "_hint") | translate }}</p>
+      </fieldset>
+    }
     <div class="d-flex justify-content-end gap-2 mt-4">
       <button type="button" class="btn btn-outline-secondary" (click)="closeBookingModal()">{{ "common.cancel" | translate }}</button>
       <button type="submit" class="btn btn-primary" [disabled]="saving()">{{ (saving() ? "common.saving" : "common.save") | translate }}</button>
@@ -334,6 +410,31 @@
       <button type="submit" class="btn btn-primary" [disabled]="saving() || paymentPayableOptions().length === 0">
         {{ (saving() ? "common.saving" : "common.save") | translate }}
       </button>
+    </div>
+  </form>
+</app-modal>
+
+<app-modal [open]="healthModalOpen()" [title]="'clients.health_title' | translate" (closed)="closeHealthModal()">
+  @if (formError()) {
+    <div class="alert alert-danger">{{ formError() }}</div>
+  }
+  <form [formGroup]="healthForm" (ngSubmit)="submitHealth()" novalidate>
+    <div class="mb-3">
+      <label for="hl-notes">{{ "clients.health_notes" | translate }}</label>
+      <textarea id="hl-notes" class="form-control" rows="4" formControlName="health_notes"
+                [placeholder]="'clients.health_notes_placeholder' | translate"></textarea>
+      <p class="form-text mb-0">{{ "clients.health_notes_hint" | translate }}</p>
+    </div>
+    <div class="mb-3">
+      <label for="hl-waiver">{{ "clients.waiver_signed_on" | translate }}</label>
+      <div class="d-flex gap-2">
+        <input id="hl-waiver" type="date" class="form-control" formControlName="waiver_signed_on" />
+        <button type="button" class="btn btn-outline-secondary prof-waiver-today" (click)="signWaiverToday()">{{ "clients.waiver_today" | translate }}</button>
+      </div>
+    </div>
+    <div class="d-flex justify-content-end gap-2 mt-4">
+      <button type="button" class="btn btn-outline-secondary" (click)="closeHealthModal()">{{ "common.cancel" | translate }}</button>
+      <button type="submit" class="btn btn-primary" [disabled]="saving()">{{ (saving() ? "common.saving" : "common.save") | translate }}</button>
     </div>
   </form>
 </app-modal>

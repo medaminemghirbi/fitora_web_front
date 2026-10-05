@@ -6,9 +6,17 @@ import { Session } from "../models/session.model";
 
 export interface SessionPayload {
   activity_id: string;
-  /** Set only for an individual session — books this member into the new session. */
+  /**
+   * Set only for an individual session — books this member into the new
+   * session. Left out, the one-to-one slot stays open for a member to take.
+   */
   client_id?: string;
+  /** With client_id and no contract: a free trial, or a single session owed on its own. */
+  trial?: boolean;
+  drop_in?: boolean;
   coach_id?: string | null;
+  /** The room or cabin, for a gym that runs them. */
+  space_id?: string | null;
   starts_at: string;
   ends_at: string;
   capacity?: number;

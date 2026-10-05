@@ -18,6 +18,8 @@ export interface CoachMember {
   full_name: string;
   phone: string | null;
   email: string | null;
+  /** Contraindications to know before the session (pacemaker, pregnancy, an injury). */
+  health_notes?: string | null;
   last_seen_at: string | null;
   next_session_at: string | null;
 }

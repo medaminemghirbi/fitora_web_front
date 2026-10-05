@@ -6,7 +6,7 @@
       <div class="dropdown-wrap">
         <button type="button" class="member-brand member-brand--switch" (click)="gymMenuOpen.set(!gymMenuOpen())">
           <span class="member-brand-mark"><i class="bi bi-lightning-charge-fill"></i></span>
-          <span class="member-brand-text">{{ member.companyName() || "Gymly" }}</span>
+          <span class="member-brand-text">{{ member.companyName() || "Fitora" }}</span>
           <i class="bi bi-chevron-down member-brand-caret" aria-hidden="true"></i>
         </button>
         @if (gymMenuOpen()) {
@@ -27,7 +27,7 @@
     } @else {
       <a routerLink="/member/home" class="member-brand">
         <span class="member-brand-mark"><i class="bi bi-lightning-charge-fill"></i></span>
-        <span class="member-brand-text">{{ member.companyName() || "Gymly" }}</span>
+        <span class="member-brand-text">{{ member.companyName() || "Fitora" }}</span>
       </a>
     }
 

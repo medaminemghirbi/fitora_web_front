@@ -11,7 +11,7 @@ function invoice(period_start: string, period_end: string, id = "inv"): Invoice 
     currency: "TND",
     billing_period: "monthly",
     issued_at: `${period_start}T00:00:00Z`,
-    issued_by: "Gymly",
+    issued_by: "Fitora",
     notes: null,
   } as Invoice;
 }

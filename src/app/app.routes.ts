@@ -8,7 +8,7 @@ import { memberGuard } from "./core/guards/member.guard";
 import { emailConfirmedGuard, emailPendingGuard } from "./core/guards/email.guard";
 
 /**
- * Gymly is sold to gyms. Everything before signing in is written for one:
+ * Fitora is sold to gyms. Everything before signing in is written for one:
  * the landing page, signing up, and a single sign-in.
  *
  * /member is the app a gym gives its own members — the gym's schedule, their

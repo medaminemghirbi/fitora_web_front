@@ -24,7 +24,7 @@
                 </div>
                 <div>
                   <input id="br-logo" type="file" class="form-control" accept="image/png,image/jpeg,image/webp,image/svg+xml" (change)="onLogoSelected($event)" />
-                  <div class="form-text">{{ "settings.branding_logo_hint" | translate }}</div>
+                  <div class="form-text">{{ "settings.branding_logo_hint" | translate }} {{ "settings.branding_logo_pdf_hint" | translate }}</div>
                 </div>
               </div>
             </div>
@@ -43,6 +43,84 @@
               <input id="br-slug" class="form-control" formControlName="slug" dir="ltr" placeholder="power-gym" />
               <div class="form-text">{{ "settings.branding_slug_hint" | translate }}</div>
             </div>
+
+            <!-- What every contract PDF is signed with. Set once here, it is
+                 printed on each member's contract (Contrat PDF). -->
+            <section class="branding-docs">
+              <h2 class="branding-docs-title">{{ "settings.contracts_title" | translate }}</h2>
+              <p class="text-muted-token small">{{ "settings.contracts_hint" | translate }}</p>
+
+              <div class="mb-4">
+                <div class="branding-signature-head">
+                  <span class="branding-label" id="br-signature-label">{{ "settings.signature" | translate }}</span>
+                  <!-- Signed here by default; an image file for whoever has a
+                       scanned one, or cannot draw with a pointer. -->
+                  <div class="fx-segmented" role="tablist" [attr.aria-labelledby]="'br-signature-label'">
+                    <button type="button" role="tab" [class.is-active]="signatureMode() === 'draw'" [attr.aria-selected]="signatureMode() === 'draw'"
+                            (click)="signatureMode.set('draw')">
+                      <i class="bi bi-pen" aria-hidden="true"></i> {{ "settings.signature_draw" | translate }}
+                    </button>
+                    <button type="button" role="tab" [class.is-active]="signatureMode() === 'upload'" [attr.aria-selected]="signatureMode() === 'upload'"
+                            (click)="signatureMode.set('upload')">
+                      <i class="bi bi-upload" aria-hidden="true"></i> {{ "settings.signature_upload" | translate }}
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Stays put while a new one is drawn: making it disappear on
+                     the first stroke moved the pad up under the pen. -->
+                @if (!removeSignature() && signatureUrl()) {
+                  <div class="branding-signature-current" [class.is-replaced]="!!selectedSignature()">
+                    <div class="branding-signature-preview">
+                      <img [src]="signatureUrl()" [alt]="'settings.signature' | translate" />
+                    </div>
+                    <div class="small">
+                      <div class="fw-semibold">{{ "settings.signature_current" | translate }}</div>
+                      <div class="text-muted-token">
+                        {{ (selectedSignature() ? "settings.signature_will_replace" : "settings.signature_replace_hint") | translate }}
+                      </div>
+                      <button type="button" class="btn btn-link btn-sm px-0" (click)="clearSignature()">
+                        {{ "settings.signature_remove" | translate }}
+                      </button>
+                    </div>
+                  </div>
+                }
+
+                @if (signatureMode() === "draw") {
+                  <app-signature-pad (signed)="onSignatureDrawn($event)" />
+                  <div class="form-text">{{ "settings.signature_draw_hint" | translate }}</div>
+                } @else {
+                  <div class="d-flex align-items-center gap-3 flex-wrap">
+                    @if (signaturePreview(); as src) {
+                      <div class="branding-signature-preview">
+                        <img [src]="src" [alt]="'settings.signature' | translate" />
+                      </div>
+                    }
+                    <div class="flex-grow-1">
+                      <input id="br-signature" type="file" class="form-control" accept="image/png,image/jpeg"
+                             [attr.aria-labelledby]="'br-signature-label'" (change)="onSignatureSelected($event)" />
+                      <div class="form-text">{{ "settings.signature_hint" | translate }}</div>
+                    </div>
+                  </div>
+                }
+                @if (signatureError()) {
+                  <div class="text-danger small mt-1">{{ signatureError() }}</div>
+                }
+              </div>
+
+              <div class="mb-4">
+                <label for="br-signatory">{{ "settings.signatory_name" | translate }}</label>
+                <input id="br-signatory" class="form-control" formControlName="signatory_name" maxlength="120"
+                       [placeholder]="'settings.signatory_name_placeholder' | translate" />
+              </div>
+
+              <div class="mb-4">
+                <label for="br-terms">{{ "settings.contract_terms" | translate }} ({{ "common.optional" | translate }})</label>
+                <textarea id="br-terms" class="form-control" rows="6" formControlName="contract_terms"
+                          [placeholder]="'settings.contract_terms_placeholder' | translate"></textarea>
+                <div class="form-text">{{ "settings.contract_terms_hint" | translate }}</div>
+              </div>
+            </section>
 
             <button type="submit" class="btn btn-primary" [disabled]="saving()">
               {{ (saving() ? "common.saving" : "common.save") | translate }}

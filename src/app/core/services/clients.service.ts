@@ -31,7 +31,9 @@ export interface ClientFilters {
 /** The plan half of a one-shot sign-up. Prices are the gym's, never sent. */
 export interface EnrolmentSubscription {
   contract_type_id: string;
-  activity_id: string;
+  /** One or the other: an activity, or a pack of several. */
+  activity_id?: string;
+  pack_id?: string;
   starts_on?: string;
   discount?: number;
   collect_payment?: boolean;
@@ -55,6 +57,8 @@ export type ClientPayload = Partial<
     emergency_contact_name: string | null;
     emergency_contact_phone: string | null;
     notes: string | null;
+    health_notes: string | null;
+    waiver_signed_on: string | null;
   }
 >;
 

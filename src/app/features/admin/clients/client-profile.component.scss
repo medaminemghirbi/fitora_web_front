@@ -244,6 +244,52 @@
 .prof-actions-spacer { flex-grow: 1; }
 
 // ---------------------------------------------------------------------------
+// Health file
+// ---------------------------------------------------------------------------
+.prof-health {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+
+  // Something to know: it should not read like the rest of the page.
+  &.has-notes {
+    border-color: var(--color-warning);
+    background: var(--color-warning-soft);
+  }
+
+  .prof-label { margin-bottom: var(--space-1); }
+}
+
+.prof-health-icon {
+  font-size: 1.25rem;
+  color: var(--color-text-secondary);
+
+  .has-notes & { color: var(--color-warning); }
+}
+
+.prof-health-body { flex: 1; min-width: 0; }
+
+.prof-health-notes {
+  margin: 0;
+  white-space: pre-line;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.prof-health-waiver {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-success);
+
+  &.is-missing { color: var(--color-danger); }
+}
+
+// ---------------------------------------------------------------------------
 // The stream
 // ---------------------------------------------------------------------------
 .prof-label {
@@ -368,3 +414,7 @@
     > span:first-child { flex-grow: 1; min-width: 0; }
   }
 }
+
+.prof-history-docs { display: inline-flex; gap: 0.15rem; align-self: center; }
+
+.prof-waiver-today { white-space: nowrap; }

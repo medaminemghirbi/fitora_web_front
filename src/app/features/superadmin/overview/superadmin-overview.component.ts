@@ -8,7 +8,7 @@ import { ErrorStateComponent } from "../../../shared/ui/error-state.component";
 import { SkeletonComponent } from "../../../shared/ui/skeleton.component";
 
 /**
- * How Gymly itself is doing.
+ * How Fitora itself is doing.
  *
  * The superadmin console opened on a list of companies, which answers "who are
  * they" and not "how is the business". This answers the second, in four

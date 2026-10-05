@@ -52,12 +52,12 @@ describe("ConfigurationService", () => {
   }
 
   afterEach(() => {
-    localStorage.removeItem("gymly_bootstrap");
+    localStorage.removeItem("fitora_bootstrap");
     httpMock?.verify();
   });
 
   it("starts with no cached state when localStorage is empty", () => {
-    localStorage.removeItem("gymly_bootstrap");
+    localStorage.removeItem("fitora_bootstrap");
     const config = buildService();
     expect(config.ready()).toBe(false);
     expect(config.company()).toBeNull();
@@ -65,20 +65,20 @@ describe("ConfigurationService", () => {
   });
 
   it("hydrates from a valid cache written by a previous session", () => {
-    localStorage.setItem("gymly_bootstrap", JSON.stringify(bootstrap));
+    localStorage.setItem("fitora_bootstrap", JSON.stringify(bootstrap));
     const config = buildService();
     expect(config.ready()).toBe(true);
     expect(config.permissions()).toEqual(["clients", "payments"]);
   });
 
   it("rejects a stale cache missing permissions/modules arrays", () => {
-    localStorage.setItem("gymly_bootstrap", JSON.stringify({ user: {}, company: {} }));
+    localStorage.setItem("fitora_bootstrap", JSON.stringify({ user: {}, company: {} }));
     const config = buildService();
     expect(config.ready()).toBe(false);
   });
 
   it("rejects corrupt JSON in the cache", () => {
-    localStorage.setItem("gymly_bootstrap", "{not json");
+    localStorage.setItem("fitora_bootstrap", "{not json");
     const config = buildService();
     expect(config.ready()).toBe(false);
   });
@@ -99,7 +99,7 @@ describe("ConfigurationService", () => {
     expect(config.modules()).toEqual(["clients"]);
     expect(config.roles()).toEqual(bootstrap.roles);
     expect(config.permissionCatalog()).toEqual({ clients: "Membres" });
-    expect(JSON.parse(localStorage.getItem("gymly_bootstrap")!)).toEqual(bootstrap);
+    expect(JSON.parse(localStorage.getItem("fitora_bootstrap")!)).toEqual(bootstrap);
   });
 
   it("load() applies branding and the company locale when branding is present", () => {
@@ -160,7 +160,7 @@ describe("ConfigurationService", () => {
     config.clear();
 
     expect(config.ready()).toBe(false);
-    expect(localStorage.getItem("gymly_bootstrap")).toBeNull();
+    expect(localStorage.getItem("fitora_bootstrap")).toBeNull();
     expect(notificationsStub.disconnect).toHaveBeenCalled();
   });
 

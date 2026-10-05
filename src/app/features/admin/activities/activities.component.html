@@ -15,8 +15,11 @@
           [placeholder]="'activities.search_placeholder' | translate"
         />
       </div>
-      <button type="button" class="btn btn-primary btn-sm ms-auto" (click)="openCreate()">
-        <i class="bi bi-plus-lg"></i> {{ "activities.new" | translate }}
+      <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" (click)="openCreate()">
+        <i class="bi bi-pencil"></i> {{ "activity_catalogue.from_scratch" | translate }}
+      </button>
+      <button type="button" class="btn btn-primary btn-sm" (click)="openCatalogue()">
+        <i class="bi bi-grid-3x3-gap"></i> {{ "activity_catalogue.from_catalogue" | translate }}
       </button>
     </div>
   }
@@ -29,8 +32,11 @@
     } @else if (activities().length === 0) {
       <div class="app-card-body">
         <app-empty-state [title]="'activities.empty_title' | translate" [body]="'activities.empty_body' | translate" icon="bi-lightning-charge">
-          <button type="button" class="btn btn-primary" (click)="openCreate()">
-            <i class="bi bi-plus-lg"></i> {{ "activities.new" | translate }}
+          <button type="button" class="btn btn-primary" (click)="openCatalogue()">
+            <i class="bi bi-grid-3x3-gap"></i> {{ "activity_catalogue.from_catalogue" | translate }}
+          </button>
+          <button type="button" class="btn btn-outline-secondary" (click)="openCreate()">
+            {{ "activity_catalogue.from_scratch" | translate }}
           </button>
         </app-empty-state>
       </div>
@@ -60,17 +66,29 @@
                 }
               </p>
 
-              @if (activity.prices.length === 0) {
+              @if (pricesOf(activity).length === 0) {
                 <p class="act-noprice"><i class="bi bi-exclamation-circle"></i> {{ "activities.no_price" | translate }}</p>
               } @else {
                 <ul class="act-prices">
-                  @for (tariff of activity.prices; track tariff.contract_type_id) {
+                  @for (tariff of pricesOf(activity); track tariff.plan.id) {
                     <li>
-                      <span class="act-price-name">{{ tariff.contract_type_name }}</span>
+                      <span class="act-price-name">{{ tariff.plan.name }}</span>
                       <span class="act-price-value">{{ tariff.price | money: activity.currency }}</span>
                     </li>
                   }
                 </ul>
+              }
+
+              @if (store.packsWith(activity.id); as packs) {
+                @if (packs.length > 0) {
+                  <p class="act-packs">
+                    <i class="bi bi-collection" aria-hidden="true"></i>
+                    {{ "activities.in_packs" | translate }}
+                    @for (pack of packs; track pack.id; let last = $last) {
+                      <strong>{{ pack.name }}</strong>@if (!last) {, }
+                    }
+                  </p>
+                }
               }
             </div>
 
@@ -172,4 +190,20 @@
       </button>
     </div>
   </form>
+</app-modal>
+
+<app-modal [open]="catalogueOpen()" size="wide" [title]="'activity_catalogue.title' | translate" (closed)="closeCatalogue()">
+  @if (templatesLoading()) {
+    <div class="act-catalogue-loading"><app-spinner [size]="22" /></div>
+  } @else {
+    <app-activity-picker [templates]="templates()" [adoptedIds]="adoptedTemplateIds()" [allowCustom]="false"
+                         [(selected)]="catalogueSelection" />
+  }
+  <div class="act-catalogue-actions">
+    <button type="button" class="btn btn-link" (click)="createFromScratch()">{{ "activity_catalogue.not_listed" | translate }}</button>
+    <button type="button" class="btn btn-outline-secondary ms-auto" (click)="closeCatalogue()">{{ "common.cancel" | translate }}</button>
+    <button type="button" class="btn btn-primary" [disabled]="catalogueSelection().length === 0 || adopting()" (click)="adoptSelected()">
+      {{ "activity_catalogue.add_n" | translate: { count: catalogueSelection().length } }}
+    </button>
+  </div>
 </app-modal>

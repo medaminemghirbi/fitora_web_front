@@ -1,9 +1,11 @@
-import { Component, OnInit, computed, effect, signal, Input } from "@angular/core";
+import { Component, OnInit, computed, effect, signal, Input, inject, untracked } from "@angular/core";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from "@angular/forms";
 import { ActivatedRoute } from "@angular/router";
 import { TranslateModule, TranslateService } from "@ngx-translate/core";
 import { Activity, CAPACITY_BOUNDS, SessionFormat } from "../../../core/models/activity.model";
+import { ActivityTemplate } from "../../../core/models/activity-template.model";
+import { ActivityTemplatesService } from "../../../core/services/activity-templates.service";
 import { clientPageMeta, filterBySearch, pageSlice } from "../../../shared/utils/client-list";
 import { ActivitiesService } from "../../../core/services/activities.service";
 import { ToastService } from "../../../core/services/toast.service";
@@ -20,6 +22,8 @@ import { ErrorStateComponent } from "../../../shared/ui/error-state.component";
 import { ActionMenuComponent } from "../../../shared/ui/action-menu.component";
 import { MoneyPipe } from "../../../shared/pipes/money.pipe";
 import { PageHeaderComponent } from "../../../shared/ui/page-header.component";
+import { CatalogueStore } from "../catalogue/catalogue.store";
+import { ActivityPickerComponent } from "../../../shared/ui/activity-picker.component";
 
 @Component({
   selector: "app-activities",
@@ -39,6 +43,7 @@ import { PageHeaderComponent } from "../../../shared/ui/page-header.component";
     SkeletonComponent,
     ErrorStateComponent,
     ActionMenuComponent,
+    ActivityPickerComponent,
   ],
   templateUrl: "./activities.component.html",
   styleUrl: "./activities.component.scss",
@@ -51,13 +56,28 @@ export class ActivitiesComponent implements OnInit {
    */
   @Input() embedded = false;
 
-  readonly loading = signal(true);
-  readonly error = signal(false);
+  readonly store = inject(CatalogueStore);
+  private readonly activityTemplates = inject(ActivityTemplatesService);
+  readonly loading = this.store.loading;
+  readonly error = this.store.error;
   readonly saving = signal(false);
-  readonly activities = signal<Activity[]>([]);
+  readonly activities = this.store.activities;
   readonly modalOpen = signal(false);
   readonly editing = signal<Activity | null>(null);
   readonly formError = signal<string | null>(null);
+
+  // ---- adding from the platform's catalogue ------------------------------
+  // The usual way in: pick disciplines from tiles, each becoming one of the
+  // gym's own activities. The blank form is still there for anything else.
+  readonly catalogueOpen = signal(false);
+  readonly templates = signal<ActivityTemplate[]>([]);
+  readonly templatesLoading = signal(false);
+  readonly catalogueSelection = signal<string[]>([]);
+  readonly adopting = signal(false);
+  /** Templates this gym already teaches — the picker marks them. */
+  readonly adoptedTemplateIds = computed(() =>
+    this.activities().flatMap((a) => (a.activity_template_id ? [a.activity_template_id] : []))
+  );
 
   readonly search = signal("");
   readonly page = signal(1);
@@ -108,6 +128,13 @@ export class ActivitiesComponent implements OnInit {
       this.page.set(1);
     }, { allowSignalWrites: true });
 
+    // "Create an activity" asked for from the setup steps or another tab —
+    // which, for a gym, starts from the catalogue.
+    effect(() => {
+      if (this.loading()) return;
+      if (this.store.takeCreateRequest("activity")) untracked(() => this.openCatalogue());
+    }, { allowSignalWrites: true });
+
     // The session format drives the capacity range: keep the capacity field's
     // bounds + value coherent whenever the admin switches format.
     this.form.controls.session_format.valueChanges
@@ -140,21 +167,63 @@ export class ActivitiesComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.load();
-    if (this.route.snapshot.queryParamMap.get("action") === "new") this.openCreate();
+    this.store.loadOnce();
+    if (this.route.snapshot.queryParamMap.get("action") === "new") this.store.requestCreate("activity");
   }
 
   load(): void {
-    this.loading.set(true);
-    this.error.set(false);
-    this.activitiesService.list().subscribe({
+    this.store.reload();
+  }
+
+  /** Read off the formules, so a price typed in the grid shows here at once. */
+  pricesOf(activity: Activity): { plan: { id: string; name: string; currency: string }; price: number }[] {
+    return this.store.pricesForActivity(activity.id);
+  }
+
+  openCatalogue(): void {
+    this.catalogueSelection.set([]);
+    this.catalogueOpen.set(true);
+    if (this.templates().length > 0 || this.templatesLoading()) return;
+
+    this.templatesLoading.set(true);
+    this.activityTemplates.list().subscribe({
       next: (res) => {
-        this.activities.set(res.activities);
-        this.loading.set(false);
+        this.templates.set(res.activity_templates);
+        this.templatesLoading.set(false);
       },
-      error: () => {
-        this.error.set(true);
-        this.loading.set(false);
+      error: (err) => {
+        this.templatesLoading.set(false);
+        this.catalogueOpen.set(false);
+        this.toast.error(extractErrorMessage(err, this.translate.instant("common.error_generic")));
+      },
+    });
+  }
+
+  closeCatalogue(): void {
+    this.catalogueOpen.set(false);
+  }
+
+  /** Something the catalogue does not have: the blank form instead. */
+  createFromScratch(): void {
+    this.catalogueOpen.set(false);
+    this.openCreate();
+  }
+
+  adoptSelected(): void {
+    const ids = this.catalogueSelection();
+    if (ids.length === 0 || this.adopting()) return;
+
+    this.adopting.set(true);
+    this.activitiesService.adopt(ids).subscribe({
+      next: (res) => {
+        this.adopting.set(false);
+        this.catalogueOpen.set(false);
+        this.toast.success(this.translate.instant("activity_catalogue.added", { count: res.activities.length }));
+        this.load();
+      },
+      error: (err) => {
+        this.adopting.set(false);
+        this.toast.error(extractErrorMessage(err, this.translate.instant("common.error_generic")));
       },
     });
   }

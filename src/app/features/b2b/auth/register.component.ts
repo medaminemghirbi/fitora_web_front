@@ -34,7 +34,7 @@ export class RegisterComponent {
   readonly error = signal<string | null>(null);
   readonly showPassword = signal(false);
 
-  /** Four things Gymly does, for the panel beside the form. */
+  /** Four things Fitora does, for the panel beside the form. */
   readonly pitchPoints = [
     "auth.pitch_point_booking",
     "auth.pitch_point_one_place",

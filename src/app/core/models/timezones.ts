@@ -1,5 +1,5 @@
 // A curated IANA timezone list for the company setup dropdown, grouped by
-// region and biased toward Gymly's markets (Maghreb / francophone Africa /
+// region and biased toward Fitora's markets (Maghreb / francophone Africa /
 // Middle East / Europe). The GMT offset in each label is computed against
 // "now" so it stays right through DST.
 //

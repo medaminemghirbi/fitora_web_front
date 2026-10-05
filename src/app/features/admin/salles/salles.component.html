@@ -68,10 +68,17 @@
               <i class="bi bi-person-gear"></i> {{ "salles.assign" | translate }}
             </button>
             @if (!salle.active) {
-              <button type="button" class="btn btn-sm btn-primary" [disabled]="switching() !== null" (click)="switchTo(salle)">
-                <i class="bi bi-arrow-left-right"></i>
-                {{ (switching() === salle.id ? "salles.switching" : "salles.switch") | translate }}
-              </button>
+              @if (multiSalle()) {
+                <button type="button" class="btn btn-sm btn-primary" [disabled]="switching() !== null" (click)="switchTo(salle)">
+                  <i class="bi bi-arrow-left-right"></i>
+                  {{ (switching() === salle.id ? "salles.switching" : "salles.switch") | translate }}
+                </button>
+              } @else {
+                <!-- A Starter account keeps the salles it opened on Pro, but moving between them is Pro. -->
+                <a routerLink="/admin/subscription" class="btn btn-sm btn-outline-primary">
+                  <i class="bi bi-lock"></i> {{ "salles.switch_needs_pro" | translate }}
+                </a>
+              }
             }
           </footer>
         </article>

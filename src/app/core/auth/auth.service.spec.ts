@@ -72,7 +72,7 @@ describe("AuthService", () => {
     });
 
     it("restores the stored user on construction", () => {
-      localStorage.setItem("gymly_user_v2", JSON.stringify(admin));
+      localStorage.setItem("fitora_user_v2", JSON.stringify(admin));
       const auth = buildService();
       expect(auth.isAuthenticated()).toBe(true);
       expect(auth.currentUser()).toEqual(admin);
@@ -82,19 +82,19 @@ describe("AuthService", () => {
     });
 
     it("tolerates corrupt JSON in storage", () => {
-      localStorage.setItem("gymly_user_v2", "{not json");
+      localStorage.setItem("fitora_user_v2", "{not json");
       const auth = buildService();
       expect(auth.currentUser()).toBeNull();
     });
 
     it("tolerates corrupt JSON in the impersonator stash", () => {
-      localStorage.setItem("gymly_impersonator_v2", "{not json");
+      localStorage.setItem("fitora_impersonator_v2", "{not json");
       const auth = buildService();
       expect(auth.isImpersonating()).toBe(false);
     });
 
     it("restores a stored member session", () => {
-      localStorage.setItem("gymly_client", JSON.stringify(memberClient));
+      localStorage.setItem("fitora_client", JSON.stringify(memberClient));
       const auth = buildService();
 
       expect(auth.isAuthenticated()).toBe(true);
@@ -107,14 +107,14 @@ describe("AuthService", () => {
     // that combination once bounced people between the sign-in page and a
     // page needing a user until the app gave up painting.
     it("sends a member somewhere they can actually reach", () => {
-      localStorage.setItem("gymly_client", JSON.stringify(memberClient));
+      localStorage.setItem("fitora_client", JSON.stringify(memberClient));
       const auth = buildService();
 
       expect(auth.homeRouteForCurrentUser()).toBe("/member/home");
     });
 
     it("tolerates corrupt JSON in the stored member", () => {
-      localStorage.setItem("gymly_client", "{not json");
+      localStorage.setItem("fitora_client", "{not json");
       const auth = buildService();
       expect(auth.currentClient()).toBeNull();
     });
@@ -155,14 +155,14 @@ describe("AuthService", () => {
     });
 
     it("is always true for a platform superadmin", () => {
-      localStorage.setItem("gymly_user_v2", JSON.stringify({ ...admin, role: "superadmin" }));
+      localStorage.setItem("fitora_user_v2", JSON.stringify({ ...admin, role: "superadmin" }));
       const auth = buildService();
       expect(auth.hasPermission("anything")).toBe(true);
       expect(configStub.hasPermission).not.toHaveBeenCalled();
     });
 
     it("delegates to ConfigurationService for anyone else", () => {
-      localStorage.setItem("gymly_user_v2", JSON.stringify(admin));
+      localStorage.setItem("fitora_user_v2", JSON.stringify(admin));
       const auth = buildService();
       configStub.hasPermission.and.returnValue(true);
       expect(auth.hasPermission("payments")).toBe(true);
@@ -172,23 +172,23 @@ describe("AuthService", () => {
 
   describe("logout", () => {
     it("clears the session and navigates to login", () => {
-      localStorage.setItem("gymly_user_v2", JSON.stringify(admin));
-      localStorage.setItem("gymly_token", "tok");
+      localStorage.setItem("fitora_user_v2", JSON.stringify(admin));
+      localStorage.setItem("fitora_token", "tok");
       const auth = buildService();
 
       auth.logout();
 
       expect(auth.currentUser()).toBeNull();
-      expect(localStorage.getItem("gymly_token")).toBeNull();
+      expect(localStorage.getItem("fitora_token")).toBeNull();
       expect(configStub.clear).toHaveBeenCalled();
       expect(router.navigate).toHaveBeenCalledWith(["/connexion"]);
     });
 
     it("exits impersonation instead of destroying the superadmin session", () => {
-      localStorage.setItem("gymly_user_v2", JSON.stringify(admin));
-      localStorage.setItem("gymly_token", "admin-tok");
+      localStorage.setItem("fitora_user_v2", JSON.stringify(admin));
+      localStorage.setItem("fitora_token", "admin-tok");
       const superadmin: User = { ...admin, id: "superadmin1", role: "superadmin" };
-      localStorage.setItem("gymly_impersonator_v2", JSON.stringify({ token: "superadmin-tok", user: superadmin, companyName: "Acme" }));
+      localStorage.setItem("fitora_impersonator_v2", JSON.stringify({ token: "superadmin-tok", user: superadmin, companyName: "Acme" }));
       const auth = buildService();
 
       expect(auth.isImpersonating()).toBe(true);
@@ -206,8 +206,8 @@ describe("AuthService", () => {
   describe("impersonation", () => {
     it("startImpersonation stashes the superadmin session and switches to the admin", () => {
       const superadmin: User = { ...admin, id: "superadmin1", role: "superadmin" };
-      localStorage.setItem("gymly_user_v2", JSON.stringify(superadmin));
-      localStorage.setItem("gymly_token", "superadmin-tok");
+      localStorage.setItem("fitora_user_v2", JSON.stringify(superadmin));
+      localStorage.setItem("fitora_token", "superadmin-tok");
       const auth = buildService();
 
       auth.startImpersonation({ token: "admin-tok", user: admin }, "Acme Gym");
@@ -233,26 +233,26 @@ describe("AuthService", () => {
 
   describe("homeRouteForCurrentUser", () => {
     it("sends a platform superadmin to /superadmin/companies", () => {
-      localStorage.setItem("gymly_user_v2", JSON.stringify({ ...admin, role: "superadmin" }));
+      localStorage.setItem("fitora_user_v2", JSON.stringify({ ...admin, role: "superadmin" }));
       const auth = buildService();
       expect(auth.homeRouteForCurrentUser()).toBe("/superadmin/overview");
     });
 
     it("sends a coach-kind staff login to /coach/today", () => {
-      localStorage.setItem("gymly_user_v2", JSON.stringify({ ...admin, role: "staff", staff_role: "coach", is_coach: true }));
+      localStorage.setItem("fitora_user_v2", JSON.stringify({ ...admin, role: "staff", staff_role: "coach", is_coach: true }));
       const auth = buildService();
       expect(auth.homeRouteForCurrentUser()).toBe("/coach/today");
     });
 
     it("sends a fresh admin with unfinished setup into the onboarding flow", () => {
-      localStorage.setItem("gymly_user_v2", JSON.stringify(admin));
+      localStorage.setItem("fitora_user_v2", JSON.stringify(admin));
       const auth = buildService();
       configStub.onboarding.and.returnValue({ complete: false, dismissed: false });
       expect(auth.homeRouteForCurrentUser()).toBe("/admin/onboarding");
     });
 
     it("sends an admin with dismissed/complete setup to the dashboard", () => {
-      localStorage.setItem("gymly_user_v2", JSON.stringify(admin));
+      localStorage.setItem("fitora_user_v2", JSON.stringify(admin));
       const auth = buildService();
       configStub.onboarding.and.returnValue({ complete: false, dismissed: true });
       expect(auth.homeRouteForCurrentUser()).toBe("/admin/dashboard");
@@ -260,7 +260,7 @@ describe("AuthService", () => {
 
     // Nothing past sign-up opens until the address is confirmed.
     it("sends an admin who has not confirmed their address to the waiting screen", () => {
-      localStorage.setItem("gymly_user_v2", JSON.stringify({ ...admin, email_verified: false, company_id: null }));
+      localStorage.setItem("fitora_user_v2", JSON.stringify({ ...admin, email_verified: false, company_id: null }));
       const auth = buildService();
       expect(auth.emailConfirmationPending()).toBe(true);
       expect(auth.homeRouteForCurrentUser()).toBe("/confirmation-email");
@@ -268,14 +268,14 @@ describe("AuthService", () => {
 
     // Staff addresses were typed in by the gym; confirming stays optional.
     it("never holds staff back on an unconfirmed address", () => {
-      localStorage.setItem("gymly_user_v2", JSON.stringify({ ...admin, role: "staff", staff_role: "moderator", email_verified: false }));
+      localStorage.setItem("fitora_user_v2", JSON.stringify({ ...admin, role: "staff", staff_role: "moderator", email_verified: false }));
       const auth = buildService();
       expect(auth.emailConfirmationPending()).toBe(false);
       expect(auth.homeRouteForCurrentUser()).toBe("/admin/dashboard");
     });
 
     it("defaults everyone else to the dashboard", () => {
-      localStorage.setItem("gymly_user_v2", JSON.stringify({ ...admin, role: "staff", staff_role: "moderator" }));
+      localStorage.setItem("fitora_user_v2", JSON.stringify({ ...admin, role: "staff", staff_role: "moderator" }));
       const auth = buildService();
       expect(auth.homeRouteForCurrentUser()).toBe("/admin/dashboard");
     });
@@ -286,7 +286,7 @@ describe("AuthService", () => {
   });
 
   it("coachShellApplies follows is_coach, not the role's name", () => {
-    localStorage.setItem("gymly_user_v2", JSON.stringify({ ...admin, role: "staff", staff_role: "coach", is_coach: true }));
+    localStorage.setItem("fitora_user_v2", JSON.stringify({ ...admin, role: "staff", staff_role: "coach", is_coach: true }));
     const auth = buildService();
     expect(auth.coachShellApplies()).toBe(true);
   });
@@ -303,13 +303,13 @@ describe("AuthService", () => {
 
       expect(result).toEqual(admin);
       expect(auth.currentUser()).toEqual(admin);
-      expect(JSON.parse(localStorage.getItem("gymly_user_v2")!)).toEqual(admin);
+      expect(JSON.parse(localStorage.getItem("fitora_user_v2")!)).toEqual(admin);
     });
   });
 
   describe("loadConfiguration", () => {
     it("clears config and opens the superadmin notification feed for a superadmin login", () => {
-      localStorage.setItem("gymly_user_v2", JSON.stringify({ ...admin, role: "superadmin" }));
+      localStorage.setItem("fitora_user_v2", JSON.stringify({ ...admin, role: "superadmin" }));
       const auth = buildService();
 
       auth.loadConfiguration();
@@ -320,7 +320,7 @@ describe("AuthService", () => {
     });
 
     it("loads the bootstrap for anyone else", () => {
-      localStorage.setItem("gymly_user_v2", JSON.stringify(admin));
+      localStorage.setItem("fitora_user_v2", JSON.stringify(admin));
       const auth = buildService();
 
       auth.loadConfiguration();
@@ -328,8 +328,35 @@ describe("AuthService", () => {
       expect(configStub.load).toHaveBeenCalled();
     });
 
+    // The cached user is whatever login answered: a salle opened since
+    // would never reach the navbar switcher without this.
+    it("replaces the cached user with the live one the bootstrap carries", () => {
+      localStorage.setItem("fitora_user_v2", JSON.stringify(admin));
+      const auth = buildService();
+      const live = { ...admin, companies: [
+        { id: "c1", name: "One", logo_url: null, currency: "TND", active: false },
+        { id: "c2", name: "Two", logo_url: null, currency: "TND", active: true },
+      ] };
+      configStub.load.and.returnValue({ subscribe: (o: { next?: (b: unknown) => void }) => o.next?.({ user: live }) });
+
+      auth.loadConfiguration();
+
+      expect(auth.currentUser()).toEqual(live);
+      expect(JSON.parse(localStorage.getItem("fitora_user_v2")!)).toEqual(live);
+    });
+
+    it("keeps the cached user when the bootstrap answers for someone else", () => {
+      localStorage.setItem("fitora_user_v2", JSON.stringify(admin));
+      const auth = buildService();
+      configStub.load.and.returnValue({ subscribe: (o: { next?: (b: unknown) => void }) => o.next?.({ user: { ...admin, id: "other" } }) });
+
+      auth.loadConfiguration();
+
+      expect(auth.currentUser()).toEqual(admin);
+    });
+
     it("swallows a bootstrap load failure", () => {
-      localStorage.setItem("gymly_user_v2", JSON.stringify(admin));
+      localStorage.setItem("fitora_user_v2", JSON.stringify(admin));
       const auth = buildService();
       configStub.load.and.returnValue({ subscribe: (o: { error?: () => void }) => o.error?.() });
 
@@ -338,15 +365,15 @@ describe("AuthService", () => {
   });
 
   it("getToken reads the stored JWT", () => {
-    localStorage.setItem("gymly_token", "abc");
+    localStorage.setItem("fitora_token", "abc");
     const auth = buildService();
     expect(auth.getToken()).toBe("abc");
   });
 
   describe("changing the password", () => {
     it("keeps this device signed in with the fresh token the API returns", () => {
-      localStorage.setItem("gymly_user_v2", JSON.stringify(admin));
-      localStorage.setItem("gymly_token", "old-token");
+      localStorage.setItem("fitora_user_v2", JSON.stringify(admin));
+      localStorage.setItem("fitora_token", "old-token");
       const auth = buildService();
 
       auth.changePassword("old-password", "new-password-1").subscribe();
@@ -359,8 +386,8 @@ describe("AuthService", () => {
     });
 
     it("signs out of every device, this one included", () => {
-      localStorage.setItem("gymly_user_v2", JSON.stringify(admin));
-      localStorage.setItem("gymly_token", "tok");
+      localStorage.setItem("fitora_user_v2", JSON.stringify(admin));
+      localStorage.setItem("fitora_token", "tok");
       const auth = buildService();
 
       auth.signOutEverywhere().subscribe();
@@ -376,7 +403,7 @@ describe("AuthService", () => {
   describe("a session cached before the role rename", () => {
     it("is dropped, token and all, rather than read with the new meaning of its role", () => {
       localStorage.setItem("gymly_user", JSON.stringify({ ...admin, role: "admin" }));
-      localStorage.setItem("gymly_token", "tok");
+      localStorage.setItem("fitora_token", "tok");
 
       const auth = buildService();
 

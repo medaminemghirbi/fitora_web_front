@@ -28,7 +28,7 @@ export function httpLoaderFactory(http: HttpClient): TranslateLoader {
 // full reload is needed for date-pipe formatting to follow — an accepted V1
 // simplification rather than rebuilding Angular's static LOCALE_ID model.
 function currentLocaleId(): string {
-  const stored = localStorage.getItem("gymly_locale");
+  const stored = localStorage.getItem("fitora_locale");
   return stored === "en" || stored === "ar" ? stored : "fr";
 }
 

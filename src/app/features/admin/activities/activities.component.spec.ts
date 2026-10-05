@@ -1,19 +1,35 @@
+import { signal } from "@angular/core";
 import { ComponentFixture, TestBed } from "@angular/core/testing";
+import { ConfigurationService } from "../../../core/configuration/configuration.service";
 import { ActivatedRoute, convertToParamMap } from "@angular/router";
 import { TranslateModule } from "@ngx-translate/core";
 import { of, throwError } from "rxjs";
 import { Activity } from "../../../core/models/activity.model";
 import { ActivitiesService } from "../../../core/services/activities.service";
+import { ActivityTemplatesService } from "../../../core/services/activity-templates.service";
+import { ActivityTemplate } from "../../../core/models/activity-template.model";
 import { ConfirmService } from "../../../core/services/confirm.service";
 import { ToastService } from "../../../core/services/toast.service";
+import { ContractTypesService } from "../../../core/services/contract-types.service";
+import { PacksService } from "../../../core/services/packs.service";
+import { ContractType } from "../../../core/models/contract-type.model";
+import { Pack } from "../../../core/models/pack.model";
+import { CatalogueStore } from "../catalogue/catalogue.store";
 import { ActivitiesComponent } from "./activities.component";
 
 describe("ActivitiesComponent", () => {
+  const packsFeature = signal<Record<string, boolean>>({ packs: true });
   let fixture: ComponentFixture<ActivitiesComponent>;
   let component: ActivitiesComponent;
   let activitiesService: jasmine.SpyObj<ActivitiesService>;
   let confirmService: ConfirmService;
   let toast: ToastService;
+  let templatesService: jasmine.SpyObj<ActivityTemplatesService>;
+
+  const boxe: ActivityTemplate = {
+    id: "t-boxe", key: "boxe", family: "combat", emoji: "🥊", names: { fr: "Boxe" },
+    session_format: "collective", duration: 60, capacity: 16,
+  };
 
   const activity: Activity = {
     id: "a1", name: "Yoga", emoji: "🧘", description: null,
@@ -21,15 +37,35 @@ describe("ActivitiesComponent", () => {
     currency: "TND", prices: [{ contract_type_id: "ct1", contract_type_name: "1 Mois", billing_period: "monthly", price: 50 }],
   };
 
-  function build(queryParams: Record<string, string> = {}): void {
+  // The prices an activity shows are read off the formules, not off the
+  // activity's own `prices` — so a price typed in the grid shows at once.
+  const plan = {
+    id: "ct1", name: "Mensuel", currency: "TND", active: true,
+    activity_prices: [{ activity_id: "a1", activity_name: "Yoga", activity_emoji: "🧘", price: 65 }], pack_prices: [],
+  } as unknown as ContractType;
+  const pack = { id: "k1", name: "Duo", active: true, activity_ids: ["a1", "a2"], activities: [], prices: [] } as unknown as Pack;
+
+  function build(queryParams: Record<string, string> = {}, listError = false): void {
     TestBed.resetTestingModule();
-    activitiesService = jasmine.createSpyObj("ActivitiesService", ["list", "create", "update", "deactivate"]);
-    activitiesService.list.and.returnValue(of({ activities: [activity] }));
+    activitiesService = jasmine.createSpyObj("ActivitiesService", ["list", "create", "update", "deactivate", "adopt"]);
+    templatesService = jasmine.createSpyObj<ActivityTemplatesService>("ActivityTemplatesService", ["list"]);
+    templatesService.list.and.returnValue(of({ activity_templates: [boxe] }));
+    activitiesService.list.and.returnValue(listError ? throwError(() => new Error("nope")) : of({ activities: [activity] }));
+    const contractTypes = jasmine.createSpyObj<ContractTypesService>("ContractTypesService", ["list"]);
+    contractTypes.list.and.returnValue(of({ plans: [plan] }));
+    const packs = jasmine.createSpyObj<PacksService>("PacksService", ["list"]);
+    packs.list.and.returnValue(of({ packs: [pack] }));
 
     TestBed.configureTestingModule({
       imports: [ActivitiesComponent, TranslateModule.forRoot()],
       providers: [
+        // Packs are opt-in; these specs run a gym that turned them on.
+        { provide: ConfigurationService, useValue: { features: packsFeature } },
+        CatalogueStore,
+        { provide: ContractTypesService, useValue: contractTypes },
+        { provide: PacksService, useValue: packs },
         { provide: ActivitiesService, useValue: activitiesService },
+        { provide: ActivityTemplatesService, useValue: templatesService },
         { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap(queryParams) } } },
       ],
     });
@@ -39,6 +75,7 @@ describe("ActivitiesComponent", () => {
     confirmService = TestBed.inject(ConfirmService);
     toast = TestBed.inject(ToastService);
     fixture.detectChanges();
+    TestBed.flushEffects();
   }
 
   beforeEach(() => build());
@@ -48,14 +85,30 @@ describe("ActivitiesComponent", () => {
   });
 
   it("sets the error flag when loading fails", () => {
-    activitiesService.list.and.returnValue(throwError(() => new Error("nope")));
-    component.load();
+    build({}, true);
     expect(component.error()).toBe(true);
   });
 
-  it("opens the create modal automatically for ?action=new", () => {
+  it("keeps the list on screen when a later refresh fails", () => {
+    activitiesService.list.and.returnValue(throwError(() => new Error("nope")));
+    component.load();
+    expect(component.error()).toBe(false);
+    expect(component.activities()).toEqual([activity]);
+  });
+
+  it("reads its prices off the formules", () => {
+    expect(component.pricesOf(activity).map((row) => row.price)).toEqual([65]);
+  });
+
+  it("names the packs it is sold in", () => {
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector(".act-packs")?.textContent).toContain("Duo");
+  });
+
+  it("opens the catalogue automatically for ?action=new — a gym starts from it", () => {
     build({ action: "new" });
-    expect(component.modalOpen()).toBe(true);
+    expect(component.catalogueOpen()).toBe(true);
+    expect(component.templates()).toEqual([boxe]);
   });
 
   it("filtered/meta reflect the search term", () => {
@@ -178,5 +231,61 @@ describe("ActivitiesComponent", () => {
     activitiesService.deactivate.and.returnValue(throwError(() => new Error("nope")));
     await component.deactivate(activity);
     expect(toast.toasts()[0].kind).toBe("error");
+  });
+
+  describe("adding from the catalogue", () => {
+    it("loads the catalogue once, however often it is opened", () => {
+      component.openCatalogue();
+      component.closeCatalogue();
+      component.openCatalogue();
+
+      expect(templatesService.list).toHaveBeenCalledTimes(1);
+      expect(component.catalogueSelection()).toEqual([]);
+    });
+
+    it("marks the templates the gym already teaches", () => {
+      activitiesService.list.and.returnValue(of({ activities: [{ ...activity, activity_template_id: "t-boxe" }] }));
+      component.load();
+
+      expect(component.adoptedTemplateIds()).toEqual(["t-boxe"]);
+    });
+
+    it("adds the picked templates, then reloads", () => {
+      activitiesService.adopt.and.returnValue(of({ activities: [activity] }));
+      component.openCatalogue();
+      component.catalogueSelection.set(["t-boxe"]);
+
+      component.adoptSelected();
+
+      expect(activitiesService.adopt).toHaveBeenCalledWith(["t-boxe"]);
+      expect(component.catalogueOpen()).toBe(false);
+      expect(toast.toasts()[0].kind).toBe("success");
+    });
+
+    it("adds nothing when nothing is picked", () => {
+      component.openCatalogue();
+      component.adoptSelected();
+
+      expect(activitiesService.adopt).not.toHaveBeenCalled();
+    });
+
+    it("keeps the dialog open and says why when adding fails", () => {
+      activitiesService.adopt.and.returnValue(throwError(() => new Error("nope")));
+      component.openCatalogue();
+      component.catalogueSelection.set(["t-boxe"]);
+
+      component.adoptSelected();
+
+      expect(component.catalogueOpen()).toBe(true);
+      expect(toast.toasts()[0].kind).toBe("error");
+    });
+
+    it("hands over to the blank form for something the catalogue lacks", () => {
+      component.openCatalogue();
+      component.createFromScratch();
+
+      expect(component.catalogueOpen()).toBe(false);
+      expect(component.modalOpen()).toBe(true);
+    });
   });
 });

@@ -64,6 +64,14 @@ const COMPOSERS: Record<NotificationKind, Composer> = {
       gym: d["gym_name"] ?? "",
     }),
   }),
+  session_reminder: (t, d) => ({
+    title: t.instant("notifications.session_reminder.title"),
+    body: t.instant("notifications.session_reminder.body", {
+      activity: d["activity_name"] ?? "—",
+      date: formatDateTime(t, d["starts_at"]),
+      gym: d["gym_name"] ?? "",
+    }),
+  }),
   subscription_expiring: (t, d) => ({
     title: t.instant("notifications.subscription_expiring.title"),
     body: t.instant("notifications.subscription_expiring.body", {
@@ -82,6 +90,7 @@ const CTA_KEYS: Record<NotificationKind, string> = {
   session_cancelled: "notifications.open_bookings",
   waitlist_promoted: "notifications.open_bookings",
   subscription_expiring: "notifications.open_profile",
+  session_reminder: "notifications.open_bookings",
 };
 
 /** The localized title + body for a notification, composed from `kind` + `data`. */

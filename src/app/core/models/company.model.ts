@@ -17,6 +17,10 @@ export interface CompanySettings {
     online_booking: boolean;
     /** Whether a full session takes a queue. */
     waitlist: boolean;
+    /** Whether the desk may book a trial or a single paid session with no contract. */
+    drop_in: boolean;
+    /** Packs (several activities sold as one) — off unless a multi-discipline gym asks. */
+    packs: boolean;
   };
   booking: {
     /** Hours before the start a member may still cancel. 0 = up to the start. */
@@ -24,6 +28,10 @@ export interface CompanySettings {
     /** How far ahead the schedule is bookable. */
     booking_opens_days: number;
     no_show_consumes_session: boolean;
+    /** Hours before a session the member is reminded of it. 0 = off. */
+    reminder_hours: number;
+    /** Whether that reminder also goes out by SMS (paid per message). */
+    reminder_sms: boolean;
   };
   hours: { start: string; end: string; working_days: number[] };
   branding: { primary_color: string | null };
@@ -43,7 +51,7 @@ export interface Company {
   timezone: string;
   currency: string;
   // Short symbol for `currency` (e.g. "DT", "€") and the tenant-wide app
-  // language — both Gymly-superadmin managed, shown read-only to the admin.
+  // language — both Fitora-superadmin managed, shown read-only to the admin.
   currency_symbol: string;
   locale: string;
   // Days the company operates, as JS getDay() / Ruby wday integers
@@ -54,6 +62,12 @@ export interface Company {
   primary_color: string | null;
   settings: CompanySettings;
   logo_url: string | null;
+  /** The signature printed on every contract PDF (Settings → Image de marque). */
+  signature_url?: string | null;
+  /** Who signs the gym's contracts, e.g. "Sami Trabelsi, gérant". */
+  signatory_name?: string | null;
+  /** The gym's own contract clauses, one per line; empty prints Fitora's defaults. */
+  contract_terms?: string | null;
   // Opening hours — on the company since the site was merged into it.
   business_hours_start: string;
   business_hours_end: string;
@@ -66,6 +80,6 @@ export interface Company {
   monthly_subscription_cents: number;
   annual_subscription_cents: number;
   annual_discount_percent: number;
-  // What the company currently owes Gymly, in cents — set by hand by an
+  // What the company currently owes Fitora, in cents — set by hand by an
   // superadmin, shown read-only on the admin's subscription page.
 }

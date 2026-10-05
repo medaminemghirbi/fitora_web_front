@@ -3,7 +3,7 @@
 // ----------------------------------------------------------------------------
 // The data grid: header, rows, density, status strip, aligned figures.
 //
-// Split out of _gymly.scss, which had grown to 1208 lines and was the reason
+// Split out of _fitora.scss, which had grown to 1208 lines and was the reason
 // screens drifted: nobody could see what was already there.
 // ============================================================================
 
@@ -56,6 +56,16 @@
   font-weight: 500;
   white-space: nowrap;
   .fx-dot { width: 8px; height: 8px; }
+}
+
+// FAC-2026-0001 — the invoice reference under a contract, set apart from
+// the words around it so it reads as something to quote back.
+.fx-contract-ref {
+  margin-top: 0.15rem;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  letter-spacing: 0.02em;
 }
 
 // Primary-identity cell (avatar + name + sub)

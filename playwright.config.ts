@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * The smoke suite: the handful of journeys that have to work for Gymly to
+ * The smoke suite: the handful of journeys that have to work for Fitora to
  * be usable at all, driven through a real browser against a real Rails API.
  * The unit specs prove components; these prove the product — the Bootstrap
  * removal broke four screens that every unit spec still passed.

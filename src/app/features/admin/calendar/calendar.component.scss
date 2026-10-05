@@ -91,6 +91,14 @@
     color: var(--color-text);
   }
 
+  // An open one-to-one slot: an hour still for sale. Dashed, so it reads as a
+  // place to fill rather than a session that is happening.
+  ::ng-deep .fx-ev.is-open {
+    outline: 1px dashed currentColor;
+    outline-offset: -3px;
+    opacity: 0.85;
+  }
+
   // Happening now: the accent, matching the dashboard's live row.
   ::ng-deep .fx-ev.is-now {
     box-shadow: inset 0 0 0 2px var(--color-accent);

@@ -20,7 +20,7 @@ interface ChannelEvent {
 }
 
 /**
- * The signed-in account's notification feed — an admin's, a Gymly superadmin's
+ * The signed-in account's notification feed — an admin's, a Fitora superadmin's
  * (system_update), or a member's on their own app. Live pushes come over an
  * ActionCable subscription (NotificationChannel); history + read-state go
  * over REST. Connected/disconnected by ConfigurationService.load /

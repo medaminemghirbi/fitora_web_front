@@ -15,7 +15,7 @@ import { ChangePasswordComponent } from "../../../shared/ui/change-password.comp
 /**
  * The member's own file: the subscription they train on, whether they have
  * been turning up — and their account: their name and phone, their password,
- * and leaving Gymly.
+ * and leaving Fitora.
  *
  * No money anywhere on this screen. What a member owes is settled with the
  * desk; an app quoting a balance back at them invites an argument nobody

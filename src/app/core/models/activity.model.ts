@@ -12,6 +12,8 @@ export interface ActivityTariff {
   contract_type_id: string;
   contract_type_name: string;
   billing_period: string;
+  /** Days one purchase lasts, for a `custom` (carnet) period. */
+  validity_days?: number | null;
   price: number;
 }
 
@@ -19,6 +21,8 @@ export interface Activity {
   id: string;
   name: string;
   emoji: string | null;
+  /** The catalogue entry it was copied from; null for one the gym named itself. */
+  activity_template_id?: string | null;
   description: string | null;
   session_format: SessionFormat;
   duration: number;

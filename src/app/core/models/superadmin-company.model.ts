@@ -6,7 +6,7 @@ export interface SuperadminCurrencyOption {
   name: string;
 }
 
-/** What the gym is actually doing with Gymly — what an activation rests on. */
+/** What the gym is actually doing with Fitora — what an activation rests on. */
 export interface SuperadminCompanyUsage {
   clients: number;
   staff: number;

@@ -11,7 +11,7 @@ import { Component, EventEmitter, HostListener, Input, Output } from "@angular/c
       <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -->
       <div class="modal-backdrop-custom" (click)="closed.emit()">
         <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events -->
-        <div class="modal-panel" cdkTrapFocus cdkTrapFocusAutoCapture role="dialog" aria-modal="true"
+        <div class="modal-panel" [class.modal-panel--wide]="size === 'wide'" cdkTrapFocus cdkTrapFocusAutoCapture role="dialog" aria-modal="true"
              [attr.aria-label]="title" (click)="$event.stopPropagation()">
           <div class="modal-panel-header">
             <h3>{{ title }}</h3>
@@ -48,6 +48,8 @@ import { Component, EventEmitter, HostListener, Input, Output } from "@angular/c
       max-width: 540px;
       animation: fx-modal-in var(--transition-base);
     }
+    /* For content laid out in a grid (the activity catalogue), not a form. */
+    .modal-panel--wide { max-width: 860px; }
     .modal-panel-header {
       display: flex;
       align-items: center;
@@ -72,6 +74,7 @@ import { Component, EventEmitter, HostListener, Input, Output } from "@angular/c
 export class ModalComponent {
   @Input() open = false;
   @Input() title = "";
+  @Input() size: "default" | "wide" = "default";
   @Output() closed = new EventEmitter<void>();
 
   @HostListener("document:keydown.escape")

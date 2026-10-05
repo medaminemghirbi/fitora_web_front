@@ -70,7 +70,7 @@ export class AdminPaymentsComponent implements OnInit {
   ];
 
   /**
-   * The method tabs above the grid. No card: Gymly takes nothing online, and
+   * The method tabs above the grid. No card: Fitora takes nothing online, and
    * the API refuses `card` — offering it here only produced a filter that
    * matched nothing and a choice that failed on save.
    */
@@ -109,7 +109,7 @@ export class AdminPaymentsComponent implements OnInit {
   readonly selectedClient = signal<ClientDetail | null>(null);
   readonly payableOptions = signal<PayableOption[]>([]);
 
-  // Gymly only takes cash payments in the gym — see payments.component.html,
+  // Fitora only takes cash payments in the gym — see payments.component.html,
   // there's no method selector in the form anymore.
   readonly recordForm = this.fb.nonNullable.group({
     payable_key: ["", Validators.required],
@@ -274,10 +274,10 @@ export class AdminPaymentsComponent implements OnInit {
     this.clientsService.get(client.id).subscribe((res) => {
       this.selectedClient.set(res.client);
       const contractOptions: PayableOption[] = res.contracts
-        .filter((m) => m.payment_status !== "paid" && m.current_period_id)
+        .filter((m) => Number(m.amount_due) > 0)
         .map((m) => ({
           kind: "contract",
-          id: m.current_period_id!,
+          id: m.id,
           label: `${this.translate.instant("contracts.title")} — ${m.plan.name}`,
           amountDue: parseFloat(m.final_price),
         }));
@@ -312,7 +312,7 @@ export class AdminPaymentsComponent implements OnInit {
         amount,
         payment_method: "cash",
         notes: notes || undefined,
-        contract_period_id: kind === "contract" ? id : undefined,
+        contract_id: kind === "contract" ? id : undefined,
         booking_id: kind === "booking" ? id : undefined,
       })
       .subscribe({

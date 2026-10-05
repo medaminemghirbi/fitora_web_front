@@ -12,7 +12,7 @@ export interface PlanPrice {
 }
 
 /**
- * Gymly's own bank details — where the gym sends its subscription payment.
+ * Fitora's own bank details — where the gym sends its subscription payment.
  *
  * Served from the environment, never stored: it is the same account for every
  * gym and it belongs in a dump about as much as a password does. null when no
@@ -51,8 +51,8 @@ export interface SubscriptionInfo {
 }
 
 /**
- * The admin's view of their account's Gymly access. Read-only: there is nothing to
- * ask for. A gym settles with Gymly directly, Gymly confirms, and the
+ * The admin's view of their account's Fitora access. Read-only: there is nothing to
+ * ask for. A gym settles with Fitora directly, Fitora confirms, and the
  * invoice appears here.
  */
 @Injectable({ providedIn: "root" })

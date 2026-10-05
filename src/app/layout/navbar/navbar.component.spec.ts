@@ -1,11 +1,12 @@
 import { provideHttpClient } from "@angular/common/http";
 import { provideHttpClientTesting } from "@angular/common/http/testing";
-import { Component } from "@angular/core";
+import { Component, signal } from "@angular/core";
 import { ComponentFixture, TestBed, fakeAsync, tick } from "@angular/core/testing";
 import { Router, provideRouter } from "@angular/router";
 import { TranslateModule } from "@ngx-translate/core";
 import { of, throwError } from "rxjs";
 import { AuthService } from "../../core/auth/auth.service";
+import { ConfigurationService } from "../../core/configuration/configuration.service";
 import { NavGroup, NavLeaf } from "../../core/configuration/navigation.service";
 import { CompanyService } from "../../core/services/company.service";
 import { NavbarComponent } from "./navbar.component";
@@ -18,6 +19,7 @@ describe("NavbarComponent", () => {
   let component: NavbarComponent;
   let authStub: { currentUser: jasmine.Spy; logout: jasmine.Spy };
   let companyServiceStub: { switchTo: jasmine.Spy };
+  const subscription = signal<{ multi_salle: boolean } | null>(null);
 
   const dashboardItem: NavLeaf = { path: "/admin/dashboard", icon: "bi-house", labelKey: "nav.dashboard" };
   const groups: NavGroup[] = [
@@ -35,6 +37,7 @@ describe("NavbarComponent", () => {
   beforeEach(async () => {
     authStub = { currentUser: jasmine.createSpy().and.returnValue({ role: "admin" }), logout: jasmine.createSpy() };
     companyServiceStub = { switchTo: jasmine.createSpy().and.returnValue(of({ company: {} })) };
+    subscription.set(null);
 
     await TestBed.configureTestingModule({
       imports: [NavbarComponent, TranslateModule.forRoot()],
@@ -44,6 +47,7 @@ describe("NavbarComponent", () => {
         provideHttpClientTesting(),
         { provide: AuthService, useValue: authStub },
         { provide: CompanyService, useValue: companyServiceStub },
+        { provide: ConfigurationService, useValue: { subscription } },
       ],
     }).compileComponents();
 
@@ -253,6 +257,55 @@ describe("NavbarComponent", () => {
       admin.switchCompany("co-2");
 
       expect(companyServiceStub.switchTo).not.toHaveBeenCalled();
+    });
+
+    describe("on the plan", () => {
+      it("switches between several salles on Pro (or the trial)", () => {
+        subscription.set({ multi_salle: true });
+        const admin = freshWith({ role: "admin", companies });
+
+        expect(admin.canSwitch()).toBe(true);
+        expect(admin.switchLocked()).toBe(false);
+      });
+
+      it("is open until the plan is known — the backend has the last word", () => {
+        expect(freshWith({ role: "admin", companies }).canSwitch()).toBe(true);
+      });
+
+      it("lists every salle on Starter but does not switch to another", () => {
+        subscription.set({ multi_salle: false });
+        const admin = freshWith({ role: "admin", companies });
+
+        expect(admin.switchableCompanies()).toEqual(companies);
+        expect(admin.canSwitch()).toBe(false);
+        expect(admin.switchLocked()).toBe(true);
+
+        admin.switchCompany("co-2");
+        expect(companyServiceStub.switchTo).not.toHaveBeenCalled();
+      });
+
+      it("has nothing to lock with a single salle", () => {
+        subscription.set({ multi_salle: false });
+        const admin = freshWith({ role: "admin", companies: [companies[0]] });
+
+        expect(admin.canSwitch()).toBe(false);
+        expect(admin.switchLocked()).toBe(false);
+      });
+
+      it("renders the other salles disabled with the way to Pro on Starter", () => {
+        subscription.set({ multi_salle: false });
+        authStub.currentUser.and.returnValue({ role: "admin", companies });
+        const fresh = TestBed.createComponent(NavbarComponent);
+        fresh.detectChanges();
+        fresh.componentInstance.companySwitcherOpen.set(true);
+        fresh.detectChanges();
+
+        const el = fresh.nativeElement as HTMLElement;
+        const items = Array.from(el.querySelectorAll<HTMLButtonElement>(".app-company-switcher-item"));
+        expect(items.map((b) => b.textContent?.trim())).toEqual(["Gym One", "Gym Two"]);
+        expect(items.map((b) => b.disabled)).toEqual([false, true]);
+        expect(el.querySelector("a.app-company-switcher-locked")?.getAttribute("href")).toBe("/admin/subscription");
+      });
     });
   });
 

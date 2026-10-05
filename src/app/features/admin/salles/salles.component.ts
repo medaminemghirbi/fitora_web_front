@@ -104,7 +104,7 @@ export class SallesComponent {
   readonly switching = signal<string | null>(null);
 
   switchTo(salle: NetworkCompany): void {
-    if (salle.active || this.switching()) return;
+    if (salle.active || this.switching() || !this.multiSalle()) return;
 
     this.switching.set(salle.id);
     this.companies.switchTo(salle.id).subscribe({

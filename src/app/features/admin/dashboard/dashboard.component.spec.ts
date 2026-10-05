@@ -27,7 +27,7 @@ describe("DashboardComponent", () => {
   let toast: ToastService;
 
   const response: DashboardResponse = {
-    company: { id: 1, name: "Gymly Fitness Sousse", currency: "TND" } as unknown as Company,
+    company: { id: 1, name: "Fitora Fitness Sousse", currency: "TND" } as unknown as Company,
     stats: {
       total_clients: 12,
       active_contracts: 1,

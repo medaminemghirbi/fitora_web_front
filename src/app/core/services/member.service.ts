@@ -4,7 +4,7 @@ import { Observable, catchError, map, tap, throwError } from "rxjs";
 import { API_BASE_URL } from "../models/api-config";
 import { MemberProfile } from "../models/member.model";
 
-const ACTIVE_GYM_KEY = "gymly_member_gym";
+const ACTIVE_GYM_KEY = "fitora_member_gym";
 
 /**
  * The member's own file — who they are, which gym they are looking at, what
@@ -108,7 +108,7 @@ export class MemberService {
   }
 
   /**
-   * Leaving Gymly. Their gyms keep their books, but nothing on them names
+   * Leaving Fitora. Their gyms keep their books, but nothing on them names
    * this person any more, and every session ends. Confirmed by password.
    */
   deleteAccount(password: string): Observable<void> {

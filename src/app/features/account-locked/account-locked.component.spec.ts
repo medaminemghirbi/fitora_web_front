@@ -56,7 +56,7 @@ describe("AccountLockedComponent", () => {
     expect(component.reason()).toBe("suspended");
   });
 
-  // There is nothing to ask for any more: a gym settles with Gymly. What it
+  // There is nothing to ask for any more: a gym settles with Fitora. What it
   // can still do is read what it owes, so that is the only link.
   it("sends the admin to their invoices, the one place that helps", () => {
     build("admin");

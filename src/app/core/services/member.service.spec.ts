@@ -5,7 +5,7 @@ import { API_BASE_URL } from "../models/api-config";
 import { MemberProfile } from "../models/member.model";
 import { MemberService } from "./member.service";
 
-const ACTIVE_GYM_KEY = "gymly_member_gym";
+const ACTIVE_GYM_KEY = "fitora_member_gym";
 
 function profile(gyms: { id: string; name: string }[]): MemberProfile {
   return {

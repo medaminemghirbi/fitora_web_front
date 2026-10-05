@@ -13,6 +13,8 @@ export interface TodaysScheduleItem {
   coach_name: string | null;
   company_name: string;
   confirmed_count: number;
+  /** Marked present (or late) — what a session already over is read by. */
+  attended_count?: number;
   capacity: number;
   status: string;
 }

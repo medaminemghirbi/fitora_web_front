@@ -34,13 +34,17 @@
   </div>
 } @else {
 <div class="setup-page">
-  <div class="setup-card">
-    <div class="setup-brand">gymly</div>
+  <div class="setup-card" [class.is-wide]="step() === 1">
+    <div class="setup-brand">fitora</div>
 
+    <app-wizard-steps [steps]="['company_setup.step_details' | translate, 'company_setup.step_activities' | translate]"
+                      [current]="step()" [label]="'company_setup.details_title' | translate" />
+
+    @if (step() === 0) {
     <h1>{{ "company_setup.details_title" | translate }}</h1>
     <p class="text-muted-token small mb-3">{{ "company_setup.subtitle" | translate }}</p>
 
-    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <form [formGroup]="form" (ngSubmit)="next()" novalidate>
       @if (error()) {
         <div class="alert alert-danger" role="alert">{{ error() }}</div>
       }
@@ -101,14 +105,45 @@
         </div>
       </div>
 
-      <button type="submit" class="btn btn-primary w-100" [disabled]="saving()">
+      <button type="submit" class="btn btn-primary w-100">
+        {{ "company_setup.continue" | translate }} <i class="bi bi-arrow-right" aria-hidden="true"></i>
+      </button>
+    </form>
+    } @else {
+    <!-- What the salle teaches. Picked, not typed: each tile becomes one of
+         its own activities, which it can rename and adjust afterwards. -->
+    <h1>{{ "company_setup.activities_title" | translate }}</h1>
+    <p class="text-muted-token small mb-3">{{ "company_setup.activities_subtitle" | translate }}</p>
+
+    @if (error()) {
+      <div class="alert alert-danger" role="alert">{{ error() }}</div>
+    }
+
+    @if (templatesLoading()) {
+      <div class="setup-loading"><app-spinner [size]="22" /></div>
+    } @else {
+      @if (templatesFailed()) {
+        <div class="alert alert-warning">{{ "company_setup.catalogue_unavailable" | translate }}</div>
+      }
+      <app-activity-picker [templates]="templates()" [(selected)]="selectedTemplates" [(custom)]="customActivities" />
+    }
+
+    <div class="setup-actions">
+      <button type="button" class="btn btn-outline-secondary" [disabled]="saving()" (click)="back()">
+        <i class="bi bi-arrow-left" aria-hidden="true"></i> {{ "common.back" | translate }}
+      </button>
+      <button type="button" class="btn btn-link setup-skip" [disabled]="saving()" (click)="submit(true)">
+        {{ "company_setup.skip_activities" | translate }}
+      </button>
+      <button type="button" class="btn btn-primary" [disabled]="saving() || pickedCount() === 0" (click)="submit()">
         @if (saving()) {
           <app-spinner [size]="16" />
         } @else {
-          {{ "company_setup.create" | translate }}
+          {{ "company_setup.create_with" | translate: { count: pickedCount() } }}
         }
       </button>
-    </form>
+    </div>
+    }
   </div>
 </div>
 }

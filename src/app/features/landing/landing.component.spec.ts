@@ -65,9 +65,10 @@ describe("LandingComponent", () => {
       expect(component.fill({ time: "", name: "", coach: "", room: "", booked: 14, capacity: 12, waitlist: 2 })).toBe(100);
     });
 
-    it("marks a class full once every place is booked", () => {
+    it("marks a group full once every place is booked, but never a one-to-one slot", () => {
       const full = component.todayClasses.filter((c) => component.isFull(c));
-      expect(full.map((c) => c.name)).toEqual(["Pilates"]);
+      expect(full.map((c) => c.name)).toEqual(["Pilates Reformer"]);
+      expect(component.isFull({ time: "", name: "", coach: "", room: "", booked: 1, capacity: 1, waitlist: 0 })).toBe(false);
       expect(fixture.nativeElement.querySelectorAll(".lp-today-fill.is-full").length).toBe(1);
     });
   });

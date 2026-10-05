@@ -13,7 +13,7 @@
 // _components/*, which meant the framework was shipping a stylesheet whose
 // every visible rule we overrode. What was genuinely still in use was this:
 // a bounded set of utilities, reproduced here in about two hundred lines
-// against Gymly's own tokens.
+// against Fitora's own tokens.
 //
 // The spacing steps map onto the token scale rather than Bootstrap's rem
 // ladder, so `mb-3` is --space-3 and margins line up with everything else.

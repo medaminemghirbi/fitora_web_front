@@ -258,7 +258,7 @@ export class DashboardComponent {
     this.reportsService.exportCompany(periodType, period).subscribe({
       next: (blob) => {
         this.exporting.set(false);
-        downloadBlob(blob, `gymly-rapport-${period}.xlsx`);
+        downloadBlob(blob, `fitora-rapport-${period}.xlsx`);
       },
       error: () => {
         this.exporting.set(false);

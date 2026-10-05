@@ -2,7 +2,7 @@ import { Injectable, signal } from "@angular/core";
 
 export type Theme = "light" | "dark";
 
-const THEME_KEY = "gymly_theme";
+const THEME_KEY = "fitora_theme";
 
 @Injectable({ providedIn: "root" })
 export class ThemeService {

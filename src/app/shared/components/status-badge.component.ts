@@ -38,6 +38,9 @@ const TONE_BY_STATUS: Record<string, BadgeTone> = {
   unpaid: "danger",
   refunded: "info",
   trial: "info",
+  // On hold — not a problem, not running either.
+  paused: "info",
+  drop_in: "info",
   inactive: "neutral",
 };
 
