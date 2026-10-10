@@ -1,3 +1,4 @@
+import { provideRouter } from "@angular/router";
 import { signal } from "@angular/core";
 import { ComponentFixture, TestBed } from "@angular/core/testing";
 import { ConfigurationService } from "../../../core/configuration/configuration.service";
@@ -51,6 +52,7 @@ describe("CalendarComponent", () => {
   let spacesService: jasmine.SpyObj<SpacesService>;
   /** The gym's feature switches, as the bootstrap payload carries them. */
   const features = signal<Record<string, boolean>>({});
+  const proFeatures = signal(true);
   const cabin: Space = { id: "sp1", name: "Cabine 1", kind: "cabine", capacity: 1, active: true, activity_ids: [], deletable: true };
   let companyService: jasmine.SpyObj<CompanyService>;
   let confirmService: ConfirmService;
@@ -111,8 +113,9 @@ describe("CalendarComponent", () => {
         { provide: ClientsService, useValue: clientsService },
         { provide: CompanyService, useValue: companyService },
         { provide: RecurringSchedulesService, useValue: recurringService },
-        { provide: ConfigurationService, useValue: { features: features } },
+        { provide: ConfigurationService, useValue: { features: features, proFeatures } },
         { provide: SpacesService, useValue: spacesService },
+        provideRouter([]),
       ],
     });
 
@@ -124,6 +127,7 @@ describe("CalendarComponent", () => {
   }
 
   beforeEach(() => features.set({}));
+  beforeEach(() => proFeatures.set(true));
   beforeEach(() => build("admin"));
 
   function internal(): Internal {
@@ -227,6 +231,16 @@ describe("CalendarComponent", () => {
 
       expect(sessionsService.schedulePdf).toHaveBeenCalled();
       expect(component.printingSchedule()).toBe(false);
+    });
+
+    it("is a Pro tool: on Starter and the trial the button leads to the plan, and nothing is asked", () => {
+      proFeatures.set(false);
+      fixture.detectChanges();
+      const el = fixture.nativeElement as HTMLElement;
+
+      expect(el.querySelector("a.fx-cal-print-locked")?.getAttribute("href")).toBe("/admin/subscription");
+      component.printSchedule();
+      expect(sessionsService.schedulePdf).not.toHaveBeenCalled();
     });
 
     it("shows an error toast and resets loading state when the pdf request fails", () => {

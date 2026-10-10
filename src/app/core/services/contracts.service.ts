@@ -38,10 +38,11 @@ export interface ContractListResponse {
   meta: PageMeta;
   counts: Record<string, number>;
   plan_counts: Record<string, number>;
+  /** The money figures only come for a login holding `revenue`. */
   totals: {
-    portfolio_value: number;
-    average_basket: number;
-    unpaid_value: number;
+    portfolio_value?: number;
+    average_basket?: number;
+    unpaid_value?: number;
     expiring_soon: number;
   };
 }

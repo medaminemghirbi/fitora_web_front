@@ -113,15 +113,14 @@ export class NavbarComponent {
     return user?.role === "admin" || companies.length > 1 ? companies : null;
   });
   /**
-   * Whether moving between them is open: several salles, on Pro (or the
-   * trial). A Starter account that kept several from Pro still sees them
-   * all, locked, with the way to Pro. Open until the plan is known — the
-   * backend has the last word anyway.
+   * Several salles are a Pro tool (paid Pro only, locked on the trial): the menu, moving
+   * between salles and "Gérer mes salles". On Starter the menu is locked —
+   * it lists what there is and points at Pro. Open until the plan is known;
+   * the backend refuses on Starter anyway.
    */
-  readonly canSwitch = computed(
-    () => (this.switchableCompanies()?.length ?? 0) > 1 && (this.config.subscription()?.multi_salle ?? true)
-  );
-  readonly switchLocked = computed(() => (this.switchableCompanies()?.length ?? 0) > 1 && !this.canSwitch());
+  readonly proFeatures = this.config.proFeatures;
+  readonly canSwitch = computed(() => (this.switchableCompanies()?.length ?? 0) > 1 && this.proFeatures());
+  readonly switchLocked = computed(() => !!this.switchableCompanies() && !this.proFeatures());
   readonly isAdmin = computed(() => this.auth.currentUser()?.role === "admin");
   readonly activeCompany = computed(() => this.switchableCompanies()?.find((c) => c.active) ?? null);
 

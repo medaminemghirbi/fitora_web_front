@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from "@angular/core/testing";
 import { ActivatedRoute, convertToParamMap } from "@angular/router";
 import { TranslateModule } from "@ngx-translate/core";
-import { of, throwError } from "rxjs";
+import { EMPTY, of, throwError } from "rxjs";
 import { AuthService } from "../../../core/auth/auth.service";
 import { ConfigurationService } from "../../../core/configuration/configuration.service";
 import { Coach } from "../../../core/models/coach.model";
@@ -34,6 +34,14 @@ const coachStaff: StaffMember = {
 const moderatorRole = { id: "r1", key: "moderator", name: "Modérateur", permissions: ["clients"], builtin: true };
 const coachRole = { id: "r2", key: "coach", name: "Coach", permissions: ["checkin"], builtin: true };
 const adminRole = { id: "r3", key: "admin", name: "Admin", permissions: [], builtin: true };
+const accountantRole = { id: "r4", key: "comptable", name: "Comptable", permissions: ["payments", "revenue"], builtin: false };
+
+const accountant: StaffMember = {
+  id: "s3", role: "moderator", role_key: "comptable", role_name: "Comptable",
+  permissions: ["payments", "revenue"], active: true, birthdate: null,
+  user: { id: "u3", full_name: "Sami Ben Ali", email: "sami@x.test", phone: null },
+  coach_id: null,
+};
 
 describe("TeamComponent", () => {
   let fixture: ComponentFixture<TeamComponent>;
@@ -44,12 +52,19 @@ describe("TeamComponent", () => {
   let toast: ToastService;
   let authStub: { currentUser: jasmine.Spy };
 
-  function build(role: string, queryParams: Record<string, string> = {}): void {
+  function build(
+    role: string,
+    queryParams: Record<string, string> = {},
+    staff: StaffMember[] = [moderator, coachStaff],
+    roles: object[] = [adminRole, moderatorRole, coachRole]
+  ): void {
     TestBed.resetTestingModule();
-    coachesService = jasmine.createSpyObj("CoachesService", ["list", "create", "update", "deactivate", "setLogin"]);
+    coachesService = jasmine.createSpyObj("CoachesService", ["list", "create", "update", "deactivate", "setLogin", "get"]);
+    // The single-coach fetch that brings the whole e-mail; silent unless a test says otherwise.
+    coachesService.get.and.returnValue(EMPTY);
     staffService = jasmine.createSpyObj("StaffService", ["list", "create", "update"]);
     coachesService.list.and.returnValue(of({ coaches: [coach] }));
-    staffService.list.and.returnValue(of({ staff: [moderator, coachStaff] }));
+    staffService.list.and.returnValue(of({ staff }));
     authStub = { currentUser: jasmine.createSpy().and.returnValue({ role }) };
 
     TestBed.configureTestingModule({
@@ -61,7 +76,7 @@ describe("TeamComponent", () => {
         {
           provide: ConfigurationService,
           useValue: {
-            roles: () => [adminRole, moderatorRole, coachRole],
+            roles: () => roles,
             roleName: (key: string) => ({ coach: "Coach", moderator: "Modérateur" })[key] ?? key,
           },
         },
@@ -103,8 +118,52 @@ describe("TeamComponent", () => {
   });
 
   it("opens the backoffice create drawer for ?action=new&type=backoffice, admin only", () => {
-    build("admin", { action: "new", type: "backoffice" });
+    build("admin", { action: "new", type: "backoffice" }, [coachStaff]);
     expect(component.createKind()).toBe("backoffice");
+  });
+
+  it("falls back to the coach flow when the salle already has its moderator", () => {
+    build("admin", { action: "new", type: "backoffice" });
+    expect(component.hasModerator()).toBe(true);
+    expect(component.createKind()).toBe("coach");
+  });
+
+  it("counts only an active non-coach login as the salle's moderator", () => {
+    build("admin", {}, [{ ...moderator, active: false }, coachStaff]);
+    expect(component.hasModerator()).toBe(false);
+  });
+
+  it("caps only the moderator role: a custom-role login does not take the seat", () => {
+    build("admin", {}, [accountant, coachStaff], [adminRole, moderatorRole, coachRole, accountantRole]);
+    expect(component.hasModerator()).toBe(false);
+    expect(component.availableBackofficeRoles().map((r) => r.key)).toEqual(["moderator", "comptable"]);
+  });
+
+  it("still opens the back-office flow on a custom role when the moderator is taken", () => {
+    build("admin", { action: "new", type: "backoffice" }, [moderator, coachStaff], [adminRole, moderatorRole, coachRole, accountantRole]);
+    expect(component.backofficeAvailable()).toBe(true);
+    expect(component.createKind()).toBe("backoffice");
+    expect(component.backofficeForm.controls.role_id.value).toBe("r4");
+    expect(component.isRoleTaken(moderatorRole)).toBe(true);
+    expect(component.isRoleTaken(accountantRole)).toBe(false);
+  });
+
+  it("lets the current moderator keep their role in the edit dialog", () => {
+    expect(component.isRoleTaken(moderatorRole, moderator)).toBe(false);
+    expect(component.isRoleTaken(moderatorRole, accountant)).toBe(true);
+  });
+
+  it("previews what the picked role grants", () => {
+    build("admin", {}, [moderator], [adminRole, moderatorRole, coachRole, accountantRole]);
+    expect(component.roleAccessSummary("r4")).toBe("team.access_revenue · team.access_payments");
+    expect(component.roleAccessSummary("nope")).toBe("");
+  });
+
+  it("names the member holding the back-office seat", () => {
+    build("admin", {}, [moderator, coachStaff]);
+    expect(component.moderator()?.staff?.id).toBe(moderator.id);
+    build("admin", {}, [{ ...moderator, active: false }, coachStaff]);
+    expect(component.moderator()).toBeNull();
   });
 
   it("a non-admin always gets the coach create flow regardless of ?type", () => {
@@ -246,6 +305,9 @@ describe("TeamComponent", () => {
   });
 
   describe("create back-office staff", () => {
+    // A salle with no moderator yet — one is all it may have.
+    beforeEach(() => component.staff.set([coachStaff]));
+
     it("does not submit with an invalid form", () => {
       component.openCreate("backoffice");
       component.backofficeForm.reset();
@@ -300,6 +362,19 @@ describe("TeamComponent", () => {
       expect(toast.toasts()[0].kind).toBe("success");
     });
 
+    it("openEditCoach swaps the masked list address for the whole one", () => {
+      coachesService.get.and.returnValue(of({ coach: { ...coach, email: "sarah.full@x.test" } }));
+      component.openEditCoach({ ...coach, email: "sa****ll@x.test" });
+      expect(component.editCoachForm.value.email).toBe("sarah.full@x.test");
+    });
+
+    it("submitEditCoach never sends a masked address back", () => {
+      component.openEditCoach({ ...coach, email: "sa****ll@x.test" });
+      coachesService.update.and.returnValue(of({ coach }));
+      component.submitEditCoach();
+      expect(coachesService.update.calls.mostRecent().args[1].email).toBeUndefined();
+    });
+
     it("submitEditCoach shows the backend error on failure", () => {
       component.openEditCoach(coach);
       coachesService.update.and.returnValue(throwError(() => new Error("nope")));
@@ -351,6 +426,20 @@ describe("TeamComponent", () => {
     it("openLogin falls back to the coach's plain email when login_email is unset", () => {
       component.openLogin({ ...coach, login_email: null });
       expect(component.loginForm.value.email).toBe("sarah@x.test");
+    });
+
+    it("openLogin swaps the masked list address for the whole login address", () => {
+      coachesService.get.and.returnValue(of({ coach: { ...coach, login_email: "sarah.login@x.test" } }));
+      component.openLogin({ ...coach, login_email: "sa****in@x.test" });
+      expect(component.loginForm.value.email).toBe("sarah.login@x.test");
+    });
+
+    it("submitLogin refuses a still-masked address instead of sending it", () => {
+      component.openLogin({ ...coach, login_email: "sa****in@x.test" });
+      component.loginForm.patchValue({ password: "password123" });
+      component.submitLogin();
+      expect(coachesService.setLogin).not.toHaveBeenCalled();
+      expect(component.loginError()).toBeTruthy();
     });
 
     it("openLogin falls back to '' when neither login_email nor email is set", () => {
@@ -413,6 +502,15 @@ describe("TeamComponent", () => {
       coachesService.deactivate.and.returnValue(throwError(() => new Error("nope")));
       await component.deactivate(coachMember);
       expect(toast.toasts()[0].kind).toBe("error");
+    });
+
+    it("freeing the seat from the drawer deactivates the moderator, then opens the back-office form", async () => {
+      spyOn(confirmService, "ask").and.resolveTo(true);
+      staffService.update.and.returnValue(of({ staff_member: moderator }));
+      component.freeBackofficeSeat(staffMember);
+      await fixture.whenStable();
+      expect(staffService.update).toHaveBeenCalledWith("s1", { active: false });
+      expect(component.createKind()).toBe("backoffice");
     });
   });
 

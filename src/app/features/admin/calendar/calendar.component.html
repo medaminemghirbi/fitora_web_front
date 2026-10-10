@@ -15,14 +15,23 @@
       </div>
 
       <div class="fx-cal-actions">
-        <button type="button" class="btn btn-outline-primary btn-sm" (click)="printSchedule()" [disabled]="printingSchedule()">
-          @if (printingSchedule()) {
-            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-          } @else {
+        @if (canPrint()) {
+          <button type="button" class="btn btn-outline-primary btn-sm" (click)="printSchedule()" [disabled]="printingSchedule()">
+            @if (printingSchedule()) {
+              <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            } @else {
+              <i class="bi bi-printer"></i>
+            }
+            {{ "schedule.print_week" | translate }}
+          </button>
+        } @else {
+          <!-- A Pro tool: the button leads to the plan instead. -->
+          <a routerLink="/admin/subscription" class="btn btn-outline-primary btn-sm fx-cal-print-locked" [attr.title]="'schedule.print_needs_pro' | translate">
             <i class="bi bi-printer"></i>
-          }
-          {{ "schedule.print_week" | translate }}
-        </button>
+            {{ "schedule.print_week" | translate }}
+            <span class="fx-pro-chip"><i class="bi bi-lock-fill" aria-hidden="true"></i> Pro</span>
+          </a>
+        }
         @if (canManageSessions()) {
           <button type="button" class="btn btn-primary btn-sm" (click)="openCreate()">
             <i class="bi bi-plus-lg"></i> {{ "schedule.new_session" | translate }}

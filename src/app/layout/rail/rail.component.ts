@@ -33,6 +33,8 @@ import { AvatarComponent } from "../../shared/components/avatar.component";
 export class RailComponent {
   readonly auth = inject(AuthService);
   private readonly config = inject(ConfigurationService);
+  /** Pro's tools open (paid Pro only)? Starter and the trial see them marked "Pro". */
+  readonly proFeatures = this.config.proFeatures;
   readonly nav = inject(NavigationService);
   readonly branding = inject(BrandingService);
   readonly version = inject(AppVersionService);

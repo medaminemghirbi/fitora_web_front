@@ -46,7 +46,8 @@ export interface SuperadminCompany {
    * What recording a payment would issue, now: the period and the amount.
    * During a trial it starts the day after the free days end.
    */
-  next_invoice: { period_start: string; period_end: string; amount_cents: number } | null;
+  /** amount_cents is null while no plan is chosen: there is nothing to price yet. */
+  next_invoice: { period_start: string; period_end: string; amount_cents: number | null } | null;
   usage: SuperadminCompanyUsage;
   access_open: boolean;
   // The subscription price in the company's currency, read-only here.

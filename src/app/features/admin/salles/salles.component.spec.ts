@@ -20,12 +20,13 @@ describe("SallesComponent", () => {
       { id: "s2", name: "Salle Tunis", logo_url: null, currency: "TND", active: false, city: null, members_count: 40, moderator_ids: ["m1"] },
     ],
     moderators: [
-      { id: "m1", full_name: "Amira", email: "amira@x.test", role_name: "Modérateur", active: true, company_ids: ["s1", "s2"] },
-      { id: "m2", full_name: "Karim", email: "karim@x.test", role_name: "Modérateur", active: true, company_ids: ["s1"] },
+      { id: "m1", full_name: "Amira", email: "amira@x.test", role_name: "Modérateur", role_key: "moderator", active: true, company_ids: ["s1", "s2"] },
+      { id: "m2", full_name: "Karim", email: "karim@x.test", role_name: "Modérateur", role_key: "moderator", active: true, company_ids: ["s1"] },
+      { id: "m3", full_name: "Sami", email: "sami@x.test", role_name: "Comptable", role_key: "comptable", active: true, company_ids: ["s1"] },
     ],
   };
 
-  function build(payload: CompanyNetwork = network, subscription: object = { plan: "pro", multi_salle: true }): void {
+  function build(payload: CompanyNetwork = network, subscription: object = { plan: "pro", multi_salle: true, pro_features: true }): void {
     TestBed.resetTestingModule();
     service = jasmine.createSpyObj<CompanyService>("CompanyService", ["network", "setModerators", "switchTo", "create"]);
     service.network.and.returnValue(of(payload));
@@ -40,6 +41,7 @@ describe("SallesComponent", () => {
           useValue: {
             company: () => ({ timezone: "Africa/Tunis", currency: "TND" }),
             subscription: () => subscription,
+            proFeatures: () => (subscription as { pro_features?: boolean }).pro_features ?? true,
           },
         },
       ],
@@ -69,17 +71,16 @@ describe("SallesComponent", () => {
     expect(component.planNoteKey()).toBe("salles.plan_note");
   });
 
-  // Starter runs one salle: another one is Pro's.
+  // "Mes salles" is Pro's (or the trial's): Starter runs one salle.
   describe("on Starter", () => {
-    beforeEach(() => build(network, { plan: "starter", multi_salle: false }));
+    beforeEach(() => build(network, { plan: "starter", multi_salle: false, pro_features: false }));
 
-    it("locks opening another salle, and points at the plans instead", () => {
-      const tile = fixture.nativeElement.querySelector(".sl-card--add") as HTMLAnchorElement;
+    it("locks the whole page with the way to Pro, and never asks for the network", () => {
+      const el = fixture.nativeElement as HTMLElement;
 
-      expect(tile.classList).toContain("is-locked");
-      expect(tile.getAttribute("href")).toBe("/admin/subscription");
-      expect(fixture.nativeElement.querySelector("button.sl-card--add")).toBeNull();
-      expect(component.planNoteKey()).toBe("salles.plan_note_starter");
+      expect(el.querySelector("app-pro-lock")).not.toBeNull();
+      expect(el.querySelector(".sl-grid")).toBeNull();
+      expect(service.network).not.toHaveBeenCalled();
     });
 
     it("opens no dialog even when asked", () => {
@@ -88,22 +89,17 @@ describe("SallesComponent", () => {
       expect(component.creating()).toBeFalse();
     });
 
-    it("still lists the salles it already runs, but switching is Pro", () => {
-      const el = fixture.nativeElement as HTMLElement;
-      expect(el.querySelectorAll(".sl-card:not(.sl-card--add)").length).toBe(2);
-      expect(el.querySelector(".sl-card-foot a[href='/admin/subscription']")).not.toBeNull();
-
-      const other = component.salles().find((s) => !s.active)!;
-      component.switchTo(other);
+    it("never switches salle", () => {
+      component.switchTo(network.companies[1] as never);
       expect(service.switchTo).not.toHaveBeenCalled();
     });
   });
 
-  it("lets the free trial open another salle, and says it lasts the trial", () => {
-    build(network, { plan: "starter", multi_salle: true, trial: true });
+  it("locks the page on the free trial too: several salles are a paid Pro feature", () => {
+    build(network, { plan: null, multi_salle: false, trial: true, pro_features: false });
 
-    expect(fixture.nativeElement.querySelector("button.sl-card--add")).not.toBeNull();
-    expect(component.planNoteKey()).toBe("salles.plan_note_trial");
+    expect(fixture.nativeElement.querySelector("app-pro-lock")).not.toBeNull();
+    expect(service.network).not.toHaveBeenCalled();
   });
 
   it("sets the error flag when the network does not load", () => {
@@ -164,10 +160,27 @@ describe("SallesComponent", () => {
       expect(boxes[0].disabled).toBeFalse();
     });
 
+    it("keeps one moderator per salle: ticking another replaces the first", () => {
+      component.openAssign(component.salles()[1]);
+
+      component.toggle("m2");
+      expect([...component.picked()]).toEqual(["m2"]);
+
+      component.toggle("m2");
+      expect([...component.picked()]).toEqual([]);
+    });
+
+    it("adds custom-role logins alongside the moderator", () => {
+      component.openAssign(component.salles()[1]);
+
+      component.toggle("m3");
+      expect([...component.picked()].sort()).toEqual(["m1", "m3"]);
+    });
+
     it("saves exactly who is ticked, and redraws from the answer", () => {
       const updated: CompanyNetwork = {
         ...network,
-        companies: [network.companies[0], { ...network.companies[1], moderator_ids: ["m1", "m2"] }],
+        companies: [network.companies[0], { ...network.companies[1], moderator_ids: ["m2"] }],
       };
       service.setModerators.and.returnValue(of(updated));
       const success = spyOn(toast, "success");
@@ -176,9 +189,9 @@ describe("SallesComponent", () => {
       component.toggle("m2");
       component.saveModerators();
 
-      expect(service.setModerators).toHaveBeenCalledWith("s2", ["m1", "m2"]);
+      expect(service.setModerators).toHaveBeenCalledWith("s2", ["m2"]);
       expect(component.assigning()).toBeNull();
-      expect(component.salles()[1].moderator_ids).toEqual(["m1", "m2"]);
+      expect(component.salles()[1].moderator_ids).toEqual(["m2"]);
       expect(success).toHaveBeenCalled();
     });
 

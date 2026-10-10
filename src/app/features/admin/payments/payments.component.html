@@ -33,26 +33,30 @@
       }
     </nav>
 
-    <div class="fx-stats-bar">
-      <dl class="fx-stats">
-        <div>
-          <dt>{{ "payments.collected_this_month" | translate }}</dt>
-          <dd class="text-success-token">{{ totals().collected_this_month | money: currency() }}</dd>
-        </div>
-        <div>
-          <dt>{{ "payments.collected_total" | translate }}</dt>
-          <dd>{{ totals().collected_total | money: currency() }}</dd>
-        </div>
-        <div>
-          <dt>{{ "payments.average_payment" | translate }}</dt>
-          <dd>{{ totals().average_payment | money: currency() }}</dd>
-        </div>
-        <div>
-          <dt>{{ "payments.status_refunded" | translate }}</dt>
-          <dd>{{ totals().refunded_value | money: currency() }}</dd>
-        </div>
-      </dl>
-    </div>
+    <!-- What the gym has taken in is `revenue`: the API sends no totals to
+         a login that only takes payments, and the strip is not drawn. -->
+    @if (totals(); as t) {
+      <div class="fx-stats-bar">
+        <dl class="fx-stats">
+          <div>
+            <dt>{{ "payments.collected_this_month" | translate }}</dt>
+            <dd class="text-success-token">{{ t.collected_this_month | money: currency() }}</dd>
+          </div>
+          <div>
+            <dt>{{ "payments.collected_total" | translate }}</dt>
+            <dd>{{ t.collected_total | money: currency() }}</dd>
+          </div>
+          <div>
+            <dt>{{ "payments.average_payment" | translate }}</dt>
+            <dd>{{ t.average_payment | money: currency() }}</dd>
+          </div>
+          <div>
+            <dt>{{ "payments.status_refunded" | translate }}</dt>
+            <dd>{{ t.refunded_value | money: currency() }}</dd>
+          </div>
+        </dl>
+      </div>
+    }
 
     <!-- The method select in the rail asked the same question as the tabs
          above, so the rail went and its one column went back to the table. -->
@@ -128,7 +132,7 @@
                       <a class="fx-menu-item" [routerLink]="['/admin/clients', p.client.id]">
                         <i class="bi bi-person"></i> {{ "payments.view_client" | translate }}
                       </a>
-                      @if (p.status === "paid") {
+                      @if (p.status === "paid" && isAdmin()) {
                         <div class="fx-menu-divider"></div>
                         <button type="button" class="fx-menu-item is-danger" (click)="refund(p)">
                           <i class="bi bi-arrow-counterclockwise"></i> {{ "payments.refund" | translate }}

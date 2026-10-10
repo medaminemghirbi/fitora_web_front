@@ -49,6 +49,7 @@ describe("SubscriptionComponent", () => {
           plan: "starter",
           member_app: false,
           multi_salle: false,
+          pro_features: false,
         },
         invoices: [],
         companies_count: 1,
@@ -172,7 +173,7 @@ describe("SubscriptionComponent", () => {
     function withPlans(plan: PlanKey) {
       component.info.set({
         ...component.info()!,
-        subscription: { ...component.info()!.subscription!, plan, member_app: plan === "pro", multi_salle: plan === "pro" },
+        subscription: { ...component.info()!.subscription!, plan, member_app: plan === "pro", multi_salle: plan === "pro", pro_features: plan === "pro" },
         companies_count: 3,
         staff_used: 2,
         clients_used: 148,
@@ -238,12 +239,12 @@ describe("SubscriptionComponent", () => {
     it("keeps several salles, the member app and the updates for Pro", () => {
       withPlans("starter");
 
-      expect(component.proFeatures().map((f) => f.key)).toEqual(["multi_salle", "member_app", "updates"]);
+      expect(component.proFeatures().map((f) => f.key)).toEqual(["multi_salle", "member_app", "updates", "roles", "branding", "data_exchange", "print"]);
     });
 
     it("shows what Pro adds as missing on Starter, and as held on Pro", () => {
       withPlans("starter");
-      expect(all(".sub-pro-tile.is-off").length).toBe(3);
+      expect(all(".sub-pro-tile.is-off").length).toBe(7);
 
       withPlans("pro");
       expect(all(".sub-pro-tile.is-off").length).toBe(0);
@@ -427,10 +428,12 @@ describe("SubscriptionComponent", () => {
             current_period_paid: daysLeft > 0,
             trial: true,
             trial_days_left: daysLeft,
-            // The trial is the whole product: the backend opens the app,
-            // and several salles.
-            member_app: true,
-            multi_salle: true,
+            // A trial has chosen nothing: the backend sends no plan.
+            plan: null,
+            // The trial is Starter-level: every Pro feature stays locked.
+            member_app: false,
+            multi_salle: false,
+            pro_features: false,
           },
         });
         fixture.detectChanges();
@@ -454,25 +457,31 @@ describe("SubscriptionComponent", () => {
         expect(one(".sub-period").textContent).toContain("subscription.days_left");
       });
 
-      it("carries the whole product, member app included", () => {
+      it("keeps every Pro feature locked: the trial is Starter-level", () => {
         onTrial(9);
 
-        expect(all(".sub-pro-tile.is-off").length).toBe(0);
+        expect(all(".sub-pro-tile.is-off").length).toBe(7);
       });
 
-      it("ticks Pro, the closest to it, and offers it as a request", () => {
+      it("ticks nothing — no plan is chosen on the trial — until the admin picks one", () => {
         onTrial(9);
 
+        expect(component.pickedPlan()).toBeNull();
+        expect(all(".sub-opt.is-picked").length).toBe(0);
+        expect(all(".sub-cta").length).toBe(0);
+        expect(component.currentPlanName()).toBe("subscription.tier_trial");
+
+        pick("pro");
         expect(component.pickedPlan()!.key).toBe("pro");
         expect(all(".sub-cta.is-request").length).toBe(1);
         expect(all(".sub-cta.is-current").length).toBe(0);
       });
 
-      it("warns that Starter drops the app the trial had", () => {
+      it("warns of nothing lost when the trial picks Starter: it had no Pro feature", () => {
         onTrial(9);
         pick("starter");
 
-        expect(all(".sub-warn").length).toBe(1);
+        expect(all(".sub-warn").length).toBe(0);
       });
 
       it("reads closed once it has ended, with no plan current", () => {

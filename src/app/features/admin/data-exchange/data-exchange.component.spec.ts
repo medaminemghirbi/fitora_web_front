@@ -2,6 +2,8 @@ import { ComponentFixture, TestBed } from "@angular/core/testing";
 import { TranslateModule } from "@ngx-translate/core";
 import { of, throwError } from "rxjs";
 import { HttpErrorResponse } from "@angular/common/http";
+import { signal } from "@angular/core";
+import { AuthService } from "../../../core/auth/auth.service";
 import { DataExchangeService } from "../../../core/services/data-exchange.service";
 import { ToastService } from "../../../core/services/toast.service";
 import { DataExchangeComponent } from "./data-exchange.component";
@@ -39,7 +41,10 @@ describe("DataExchangeComponent", () => {
 
     await TestBed.configureTestingModule({
       imports: [DataExchangeComponent, TranslateModule.forRoot()],
-      providers: [{ provide: DataExchangeService, useValue: service }],
+      providers: [
+        { provide: DataExchangeService, useValue: service },
+        { provide: AuthService, useValue: { isAdmin: signal(true) } },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(DataExchangeComponent);

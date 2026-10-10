@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from "@angular/core";
+import { Component, ElementRef, HostListener, computed, inject, signal } from "@angular/core";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 import { TranslateModule } from "@ngx-translate/core";
@@ -12,6 +12,9 @@ import { SettingsRolesComponent } from "./settings-roles.component";
 import { DataExchangeComponent } from "../data-exchange/data-exchange.component";
 import { SettingsAppearanceComponent } from "./settings-appearance.component";
 import { ChangePasswordComponent } from "../../../shared/ui/change-password.component";
+import { ProLockComponent } from "../../../shared/ui/pro-lock.component";
+import { SettingsMobileAppComponent } from "./settings-mobile-app.component";
+import { ConfigurationService } from "../../../core/configuration/configuration.service";
 
 // Direction A — persistent left rail + detail panel. The rail is flush to the
 // left edge and full height; `/admin/settings/:section` selects the section
@@ -30,6 +33,8 @@ import { ChangePasswordComponent } from "../../../shared/ui/change-password.comp
     DataExchangeComponent,
     SettingsAppearanceComponent,
     ChangePasswordComponent,
+    ProLockComponent,
+    SettingsMobileAppComponent,
   ],
   templateUrl: "./settings-shell.component.html",
   styleUrl: "./settings-shell.component.scss",
@@ -39,6 +44,8 @@ export class SettingsShellComponent {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
   private readonly sectionsSvc = inject(SettingsSectionsService);
+  /** Pro's tools open (paid Pro only)? Starter and the trial see them locked. */
+  readonly proFeatures = inject(ConfigurationService).proFeatures;
 
   readonly navGroups = this.sectionsSvc.navGroups;
 
@@ -48,6 +55,33 @@ export class SettingsShellComponent {
   );
 
   readonly flatSections = this.flat;
+
+  /** The everyday sections, on the tab row. */
+  readonly coreSections = computed(() => this.flat().filter((s) => !s.pro));
+  /** The Pro tools, behind the "Outils Pro" menu. */
+  readonly proSections = computed(() => this.flat().filter((s) => s.pro));
+  readonly activeIsPro = computed(() => !!this.activeSection()?.pro);
+
+  readonly proMenuOpen = signal(false);
+  private readonly host = inject(ElementRef<HTMLElement>);
+
+  toggleProMenu(event: Event): void {
+    event.stopPropagation();
+    this.proMenuOpen.update((open) => !open);
+  }
+
+  /** A click anywhere else, or Escape, closes the menu. */
+  @HostListener("document:click", ["$event"])
+  onDocumentClick(event: Event): void {
+    if (this.proMenuOpen() && !this.host.nativeElement.querySelector(".settings-pro")?.contains(event.target as Node)) {
+      this.proMenuOpen.set(false);
+    }
+  }
+
+  @HostListener("document:keydown.escape")
+  onEscape(): void {
+    this.proMenuOpen.set(false);
+  }
 
   private readonly activePath = signal<string>("");
   readonly activeSection = computed(() => this.flat().find((s) => s.path === this.activePath()));

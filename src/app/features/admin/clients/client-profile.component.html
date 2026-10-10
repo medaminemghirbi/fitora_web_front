@@ -119,9 +119,11 @@
       <button type="button" class="fx-menu-item" (click)="openHealthModal()">
         <i class="bi bi-heart-pulse"></i> {{ "clients.health_edit" | translate }}
       </button>
-      <button type="button" class="fx-menu-item is-danger" [disabled]="removing()" (click)="removeMember()">
-        <i class="bi bi-person-x"></i> {{ "clients.remove" | translate }}
-      </button>
+      @if (isAdmin()) {
+        <button type="button" class="fx-menu-item is-danger" [disabled]="removing()" (click)="removeMember()">
+          <i class="bi bi-person-x"></i> {{ "clients.remove" | translate }}
+        </button>
+      }
     </app-action-menu>
   </div>
 

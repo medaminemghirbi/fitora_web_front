@@ -1,6 +1,7 @@
+import { isMaskedEmail } from "../../../core/utils/email-mask";
 import { Component, OnInit, computed, effect, signal } from "@angular/core";
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from "@angular/forms";
-import { ActivatedRoute } from "@angular/router";
+import { ActivatedRoute, RouterLink } from "@angular/router";
 import { forkJoin, of, Observable } from "rxjs";
 import { TranslateModule, TranslateService } from "@ngx-translate/core";
 import { Coach } from "../../../core/models/coach.model";
@@ -49,6 +50,9 @@ export interface TeamMember {
   staffMemberId: string | null;
 }
 
+// The built-in role capped at one active login per salle (StaffMember::MODERATOR_ROLE_KEY).
+const MODERATOR_ROLE_KEY = "moderator";
+
 /**
  * The capabilities worth naming on a row, most consequential first. The
  * catalogue has eleven; listing all of them would be unreadable, and most
@@ -62,6 +66,7 @@ const PERMISSION_ORDER = ["revenue", "payments", "clients", "sessions", "booking
   imports: [
     FormsModule,
     ReactiveFormsModule,
+    RouterLink,
     TranslateModule,
     AvatarComponent,
     EmptyStateComponent,
@@ -85,6 +90,13 @@ export class TeamComponent implements OnInit {
 
   readonly coaches = signal<Coach[]>([]);
   readonly staff = signal<StaffMember[]>([]);
+  /**
+   * A salle has at most one active login on the built-in moderator role.
+   * Other back-office roles (custom ones) and coaches are uncapped.
+   */
+  readonly hasModerator = computed(() =>
+    this.staff().some((s) => s.active && !s.coach_id && s.role_key === MODERATOR_ROLE_KEY)
+  );
   readonly tab = signal<Tab>("all");
 
   readonly isAdmin = computed(() => this.auth.currentUser()?.role === "admin");
@@ -131,6 +143,11 @@ export class TeamComponent implements OnInit {
 
     return [...fromCoaches, ...fromStaff].sort((a, b) => a.name.localeCompare(b.name));
   });
+
+  /** The member holding the salle's moderator role, if any. */
+  readonly moderator = computed(
+    () => this.members().find((m) => m.active && !!m.staff && !m.staff.coach_id && m.staff.role_key === MODERATOR_ROLE_KEY) ?? null
+  );
 
   /**
    * What a role lets someone do, in plain words.
@@ -300,6 +317,22 @@ export class TeamComponent implements OnInit {
     this.config.roles().filter((r) => r.key !== "coach" && r.key !== "admin")
   );
 
+  /** Roles a new back-office login can take: all but the moderator once it is held. */
+  readonly availableBackofficeRoles = computed(() => this.backofficeRoles().filter((r) => !this.isRoleTaken(r)));
+  readonly backofficeAvailable = computed(() => this.availableBackofficeRoles().length > 0);
+
+  /** The moderator role while someone other than `except` holds it — one per salle. */
+  isRoleTaken(role: { key: string }, except: StaffMember | null = null): boolean {
+    const holder = this.moderator()?.staff;
+    return role.key === MODERATOR_ROLE_KEY && !!holder && holder.id !== except?.id;
+  }
+
+  /** What a role lets its logins do, worded like the team cards. */
+  roleAccessSummary(roleId: string): string {
+    const role = this.backofficeRoles().find((r) => r.id === roleId);
+    return role ? this.permissionSummary({ staff: { permissions: role.permissions } } as TeamMember) : "";
+  }
+
   constructor(
     private readonly fb: FormBuilder,
     private readonly coachesService: CoachesService,
@@ -348,11 +381,20 @@ export class TeamComponent implements OnInit {
 
   // ---- create ----
   openCreate(kind: CreateKind = "coach"): void {
-    this.createKind.set(this.isAdmin() ? kind : "coach");
+    this.createKind.set(this.isAdmin() && !(kind === "backoffice" && !this.backofficeAvailable()) ? kind : "coach");
     this.createError.set(null);
     this.coachForm.reset({ with_mobile: false });
-    this.backofficeForm.reset({ role_id: this.backofficeRoles()[0]?.id ?? "" });
+    this.backofficeForm.reset({ role_id: this.availableBackofficeRoles()[0]?.id ?? "" });
     this.createOpen.set(true);
+  }
+
+  /** From the create drawer: free the moderator role, then switch to the back-office form on it. */
+  freeBackofficeSeat(member: TeamMember): void {
+    this.deactivate(member, () => {
+      this.createKind.set("backoffice");
+      const moderatorRole = this.backofficeRoles().find((r) => r.key === MODERATOR_ROLE_KEY);
+      if (moderatorRole) this.backofficeForm.controls.role_id.setValue(moderatorRole.id);
+    });
   }
 
   closeCreate(): void {
@@ -435,6 +477,13 @@ export class TeamComponent implements OnInit {
     });
     this.editCoachError.set(null);
     this.editCoachOpen.set(true);
+    // Lists carry e-mails masked (ex****le@gmail.com): the form takes the
+    // whole address from the coach's own record, which the admin sees whole.
+    this.coachesService.get(coach.id).subscribe({
+      next: ({ coach: full }) => {
+        if (this.editingCoach()?.id === coach.id) this.editCoachForm.patchValue({ email: full.email || "" });
+      },
+    });
   }
 
   submitEditCoach(): void {
@@ -445,7 +494,11 @@ export class TeamComponent implements OnInit {
     }
     this.saving.set(true);
     this.editCoachError.set(null);
-    this.coachesService.update(coach.id, this.editCoachForm.getRawValue()).subscribe({
+    // A still-masked address (the whole one did not load) is left out, so it
+    // is never sent back over the real one — the backend would refuse it.
+    const raw = this.editCoachForm.getRawValue();
+    const payload = isMaskedEmail(raw.email) ? { ...raw, email: undefined } : raw;
+    this.coachesService.update(coach.id, payload).subscribe({
       next: () => {
         this.saving.set(false);
         this.editCoachOpen.set(false);
@@ -496,6 +549,12 @@ export class TeamComponent implements OnInit {
     this.loginForm.setValue({ email: coach.login_email || coach.email || "", password: "" });
     this.loginError.set(null);
     this.loginOpen.set(true);
+    // Same as the edit form: the whole address comes from the coach's record.
+    this.coachesService.get(coach.id).subscribe({
+      next: ({ coach: full }) => {
+        if (this.loginTarget()?.id === coach.id) this.loginForm.patchValue({ email: full.login_email || full.email || "" });
+      },
+    });
   }
 
   submitLogin(): void {
@@ -504,9 +563,13 @@ export class TeamComponent implements OnInit {
       this.loginForm.markAllAsTouched();
       return;
     }
+    const { email, password } = this.loginForm.getRawValue();
+    if (isMaskedEmail(email)) {
+      this.loginError.set(this.translate.instant("common.email_type_full"));
+      return;
+    }
     this.saving.set(true);
     this.loginError.set(null);
-    const { email, password } = this.loginForm.getRawValue();
     this.coachesService.setLogin(coach.id, email, password).subscribe({
       next: () => {
         this.saving.set(false);
@@ -522,7 +585,7 @@ export class TeamComponent implements OnInit {
   }
 
   // ---- deactivate ----
-  async deactivate(member: TeamMember): Promise<void> {
+  async deactivate(member: TeamMember, onDone?: () => void): Promise<void> {
     const ok = await this.confirm.ask({
       title: this.translate.instant("team.deactivate_confirm_title"),
       body: this.translate.instant("team.deactivate_confirm_body"),
@@ -539,6 +602,7 @@ export class TeamComponent implements OnInit {
       next: () => {
         this.toast.success(this.translate.instant("common.deactivate"));
         this.load();
+        onDone?.();
       },
       error: (err: unknown) => this.toast.error(extractErrorMessage(err, this.translate.instant("common.error_generic"))),
     });

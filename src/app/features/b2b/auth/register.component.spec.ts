@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from "@angular/core/testing";
-import { Router, provideRouter } from "@angular/router";
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from "@angular/router";
 import { TranslateModule } from "@ngx-translate/core";
 import { of, throwError } from "rxjs";
 import { AuthService } from "../../../core/auth/auth.service";
@@ -83,5 +83,20 @@ describe("RegisterComponent", () => {
     expect(component.error()).toBeTruthy();
     expect(component.loading()).toBe(false);
     expect(router.navigateByUrl).not.toHaveBeenCalled();
+  });
+
+  it("pre-fills the first name and e-mail the landing page handed over", () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [RegisterComponent, TranslateModule.forRoot()],
+      providers: [
+        provideRouter([]),
+        { provide: AuthService, useValue: auth },
+        { provide: LocaleService, useValue: { locale: () => "fr" } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({ first_name: "Sarah", email: "sarah@studio.tn" }) } } },
+      ],
+    });
+    const prefilled = TestBed.createComponent(RegisterComponent).componentInstance;
+    expect(prefilled.form.getRawValue()).toEqual(jasmine.objectContaining({ first_name: "Sarah", email: "sarah@studio.tn", last_name: "" }));
   });
 });

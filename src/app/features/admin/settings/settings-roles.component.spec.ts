@@ -1,8 +1,10 @@
 import { ComponentFixture, TestBed } from "@angular/core/testing";
+import { provideRouter } from "@angular/router";
 import { TranslateModule, TranslateService } from "@ngx-translate/core";
 import { of, throwError } from "rxjs";
 import { Role } from "../../../core/models/role.model";
 import { ConfirmService } from "../../../core/services/confirm.service";
+import { ConfigurationService } from "../../../core/configuration/configuration.service";
 import { RolesService } from "../../../core/services/roles.service";
 import { ToastService } from "../../../core/services/toast.service";
 import { SettingsRolesComponent } from "./settings-roles.component";
@@ -13,19 +15,21 @@ describe("SettingsRolesComponent", () => {
   let service: jasmine.SpyObj<RolesService>;
   let confirmService: ConfirmService;
   let toast: ToastService;
+  let config: jasmine.SpyObj<ConfigurationService>;
 
-  const adminRole: Role = { id: "r1", key: "admin", name: "Admin", permissions: ["clients", "payments"], builtin: true, deletable: false, staff_count: 1 };
+  const adminRole: Role = { id: "r1", key: "admin", name: "Admin", permissions: ["clients", "payments"], builtin: true, deletable: false, staff_count: 0 };
   const receptionRole: Role = { id: "r2", key: "moderator", name: "Réception", permissions: ["clients"], builtin: true, deletable: false, staff_count: 2 };
   const customRole: Role = { id: "r3", key: "accountant", name: "Comptable", permissions: ["payments"], builtin: false, deletable: true, staff_count: 0 };
-  const catalog = { clients: "Membres", payments: "Paiements", activities: "Activités", coaches: "Coachs" };
+  const catalog = { clients: "Membres", checkin: "Pointage", payments: "Paiements", activities: "Activités", coaches: "Coachs", mystery: "Mystère" };
 
   beforeEach(async () => {
     service = jasmine.createSpyObj<RolesService>("RolesService", ["list", "create", "update", "delete"]);
     service.list.and.returnValue(of({ roles: [adminRole, receptionRole, customRole], permission_catalog: catalog }));
+    config = jasmine.createSpyObj<ConfigurationService>("ConfigurationService", ["setRoles"]);
 
     await TestBed.configureTestingModule({
       imports: [SettingsRolesComponent, TranslateModule.forRoot()],
-      providers: [{ provide: RolesService, useValue: service }],
+      providers: [provideRouter([]), { provide: RolesService, useValue: service }, { provide: ConfigurationService, useValue: config }],
     }).compileComponents();
 
     fixture = TestBed.createComponent(SettingsRolesComponent);
@@ -35,126 +39,143 @@ describe("SettingsRolesComponent", () => {
     fixture.detectChanges();
   });
 
-  it("loads roles and the permission catalog on init", () => {
+  const clientsGroup = () => component.groups().find((g) => g.id === "front")!;
+
+  it("loads the roles and the permission catalog, and shares the roles", () => {
     expect(component.roles().length).toBe(3);
-    expect(component.catalog()).toEqual(catalog);
+    expect(component.totalPerms()).toBe(6);
+    expect(config.setRoles).toHaveBeenCalledWith([adminRole, receptionRole, customRole]);
   });
 
-  it("stops loading even when the initial load fails", () => {
+  it("flags a failed load", () => {
     service.list.and.returnValue(throwError(() => new Error("nope")));
-    fixture = TestBed.createComponent(SettingsRolesComponent);
-    fixture.detectChanges();
-    expect(fixture.componentInstance.loading()).toBe(false);
+    component.load();
+    expect(component.loadError()).toBeTrue();
   });
 
-  it("isAdminRole is true only while editing the admin role", () => {
-    component.openEdit(adminRole);
-    expect(component.isAdminRole()).toBe(true);
-    component.openEdit(receptionRole);
-    expect(component.isAdminRole()).toBe(false);
+  it("puts the admin first, then built-in roles, then custom ones — one column each, plus the new-role column", () => {
+    expect(component.columns().map((r) => r.id)).toEqual(["r1", "r2", "r3"]);
+    const heads = fixture.nativeElement.querySelectorAll(".rm-table thead th");
+    expect(heads.length).toBe(1 + 3 + 1);
   });
 
-  it("configPermKeys / dailyPermKeys split the catalog", () => {
-    expect(component.configPermKeys()).toEqual(["activities", "coaches"]);
-    expect(component.dailyPermKeys()).toEqual(["clients", "payments"]);
+  it("groups the catalog by domain, unknown keys last, and filters rows by the search", () => {
+    expect(component.groups().map((g) => g.id)).toEqual(["front", "planning", "sales", "other"]);
+    expect(component.groups().at(-1)!.keys).toEqual(["mystery"]);
+
+    component.query.set("paiem");
+    expect(component.groups().flatMap((g) => g.keys)).toEqual(["payments"]);
   });
 
-  it("permLabel falls back to the catalog label when no i18n key matches", () => {
-    expect(component.permLabel("clients")).toBe("Membres");
+  it("keeps the admin's column full and locked", () => {
+    expect(component.isOn(adminRole, "activities")).toBeTrue();
+    component.toggle(adminRole, "activities");
+    expect(component.changeCount()).toBe(0);
+    expect(component.roleCount(adminRole)).toBe(6);
+
+    const adminBoxes = Array.from(fixture.nativeElement.querySelectorAll("button.rm-box.is-locked")) as HTMLButtonElement[];
+    expect(adminBoxes.length).toBeGreaterThan(0);
+    expect(adminBoxes.every((b) => b.disabled)).toBeTrue();
   });
 
-  it("permLabel falls back to the raw key when neither i18n nor the catalog has it", () => {
-    expect(component.permLabel("mystery")).toBe("mystery");
+  it("counts a ticked box as a pending change, marks it, and reset drops it", () => {
+    component.toggle(receptionRole, "checkin");
+    expect(component.isOn(receptionRole, "checkin")).toBeTrue();
+    expect(component.isChanged(receptionRole, "checkin")).toBeTrue();
+    expect(component.changeCount()).toBe(1);
+
+    component.toggle(customRole, "payments");
+    expect(component.changeCount()).toBe(2);
+
+    component.reset();
+    expect(component.changeCount()).toBe(0);
+    expect(component.isOn(receptionRole, "checkin")).toBeFalse();
   });
 
-  it("permLabel prefers a resolved i18n translation when one exists", () => {
-    const translate = TestBed.inject(TranslateService);
-    spyOn(translate, "instant").and.callFake((key: string) => (key === "settings.perm_clients" ? "Members (i18n)" : key));
-    expect(component.permLabel("clients")).toBe("Members (i18n)");
+  it("ticks a whole group for one role, then clears it", () => {
+    expect(component.groupState(receptionRole, clientsGroup())).toBe("some");
+
+    component.toggleGroup(receptionRole, clientsGroup());
+    expect(component.groupState(receptionRole, clientsGroup())).toBe("all");
+
+    component.toggleGroup(receptionRole, clientsGroup());
+    expect(component.groupState(receptionRole, clientsGroup())).toBe("none");
   });
 
-  it("openCreate resets the draft", () => {
-    component.openCreate();
-    expect(component.editing()).toBeNull();
-    expect(component.draftName()).toBe("");
-    expect(component.draftPerms().size).toBe(0);
-    expect(component.modalOpen()).toBe(true);
-  });
-
-  it("openEdit hydrates the draft from the role", () => {
-    component.openEdit(customRole);
-    expect(component.editing()).toBe(customRole);
-    expect(component.draftName()).toBe("Comptable");
-    expect(component.draftPerms().has("payments")).toBe(true);
-  });
-
-  it("togglePerm adds and removes a permission", () => {
-    component.openCreate();
-    component.togglePerm("clients");
-    expect(component.draftPerms().has("clients")).toBe(true);
-    component.togglePerm("clients");
-    expect(component.draftPerms().has("clients")).toBe(false);
-  });
-
-  it("submit requires a non-blank name", () => {
-    component.openCreate();
-    component.draftName.set("   ");
-    component.submit();
-    expect(service.create).not.toHaveBeenCalled();
-    expect(component.formError()).toBeTruthy();
-  });
-
-  it("submit creates a new custom role", () => {
-    component.openCreate();
-    component.draftName.set("Accountant");
-    component.togglePerm("payments");
-    service.create.and.returnValue(of({ role: customRole }));
-    component.submit();
-    expect(service.create).toHaveBeenCalledWith({ name: "Accountant", permissions: ["payments"] });
-    expect(component.modalOpen()).toBe(false);
-    expect(toast.toasts()[0].kind).toBe("success");
-  });
-
-  it("submit updates a builtin role with only its permissions (name locked)", () => {
-    component.openEdit(receptionRole);
-    component.togglePerm("payments");
+  it("saves every changed role together, in catalogue order, then reloads", () => {
     service.update.and.returnValue(of({ role: receptionRole }));
-    component.submit();
-    expect(service.update).toHaveBeenCalledWith("r2", { permissions: ["clients", "payments"] });
+    component.toggle(receptionRole, "payments");
+    component.toggle(receptionRole, "checkin");
+
+    component.save();
+
+    expect(service.update).toHaveBeenCalledTimes(1);
+    expect(service.update).toHaveBeenCalledWith("r2", { permissions: ["clients", "checkin", "payments"] });
+    expect(service.list).toHaveBeenCalledTimes(2);
   });
 
-  it("submit updates a custom role with name + permissions", () => {
-    component.openEdit(customRole);
+  it("shows the backend error when saving fails", () => {
+    service.update.and.returnValue(throwError(() => ({ error: { error: "Nope" } })));
+    const spy = spyOn(toast, "error");
+    component.toggle(receptionRole, "payments");
+
+    component.save();
+
+    expect(spy).toHaveBeenCalled();
+    expect(component.saving()).toBeFalse();
+  });
+
+  it("creates a new role, empty, from the name dialog — the name is required", async () => {
+    service.create.and.returnValue(of({ role: { ...customRole, id: "r9", name: "Soir" } }));
+    await component.startCreate();
+    expect(component.nameDialog()?.mode).toBe("create");
+
+    component.submitName();
+    expect(component.nameError()).toBeTruthy();
+    expect(service.create).not.toHaveBeenCalled();
+
+    component.draftName.set("  Soir ");
+    component.submitName();
+    expect(service.create).toHaveBeenCalledWith({ name: "Soir", permissions: [] });
+    expect(component.nameDialog()).toBeNull();
+  });
+
+  it("asks before dropping unsaved boxes to add a role", async () => {
+    component.toggle(receptionRole, "payments");
+    const ask = spyOn(confirmService, "ask").and.resolveTo(false);
+
+    await component.startCreate();
+
+    expect(ask).toHaveBeenCalled();
+    expect(component.nameDialog()).toBeNull();
+  });
+
+  it("renames a custom role, never a built-in one", async () => {
     service.update.and.returnValue(of({ role: customRole }));
-    component.submit();
-    expect(service.update).toHaveBeenCalledWith("r3", { name: "Comptable", permissions: ["payments"] });
+    await component.startRename(receptionRole);
+    expect(component.nameDialog()).toBeNull();
+
+    await component.startRename(customRole);
+    component.draftName.set("Compta");
+    component.submitName();
+    expect(service.update).toHaveBeenCalledWith("r3", { name: "Compta" });
   });
 
-  it("submit shows the backend error on failure", () => {
-    component.openCreate();
-    component.draftName.set("Accountant");
-    service.create.and.returnValue(throwError(() => new Error("nope")));
-    component.submit();
-    expect(component.formError()).toBeTruthy();
-  });
-
-  it("remove does nothing when declined", async () => {
-    spyOn(confirmService, "ask").and.resolveTo(false);
+  it("remove does nothing when declined, and deletes when confirmed", async () => {
+    service.delete.and.returnValue(of(void 0));
+    const ask = spyOn(confirmService, "ask").and.resolveTo(false);
     await component.remove(customRole);
     expect(service.delete).not.toHaveBeenCalled();
+
+    ask.and.resolveTo(true);
+    await component.remove(customRole);
+    expect(service.delete).toHaveBeenCalledWith("r3");
   });
 
-  it("remove deletes on confirmation", async () => {
-    spyOn(confirmService, "ask").and.resolveTo(true);
-    service.delete.and.returnValue(of(undefined));
-    await component.remove(customRole);
-    expect(toast.toasts()[0].kind).toBe("success");
-  });
-
-  it("remove shows an error toast on failure", async () => {
-    spyOn(confirmService, "ask").and.resolveTo(true);
-    service.delete.and.returnValue(throwError(() => new Error("nope")));
-    await component.remove(customRole);
-    expect(toast.toasts()[0].kind).toBe("error");
+  it("shows the owner on the admin role, never a 0 count, and caps only the moderator", () => {
+    const translate = TestBed.inject(TranslateService);
+    expect(component.accountsLabel(adminRole)).toBe(translate.instant("settings.role_accounts_owner"));
+    expect(component.isCappedRole(receptionRole)).toBeTrue();
+    expect(component.isCappedRole(customRole)).toBeFalse();
   });
 });

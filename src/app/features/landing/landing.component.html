@@ -3,7 +3,7 @@
     <div class="lp-shell lp-nav-in">
       <a routerLink="/" class="lp-brand">
         <span class="lp-brand-mark" aria-hidden="true">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 4v16M18 4v16M3 8v8M21 8v8M6 12h12" /></svg>
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 4v16M18 4v16M3 8v8M21 8v8M6 12h12" /></svg>
         </span>
         Fitora
       </a>
@@ -16,26 +16,19 @@
       </nav>
 
       <div class="lp-nav-right">
+        <div class="lp-lang" role="group" [attr.aria-label]="'common.change_language' | translate">
+          @for (l of locales; track l.code) {
+            <button type="button" [class.is-on]="locale.locale() === l.code" [attr.aria-pressed]="locale.locale() === l.code"
+                    [attr.aria-label]="l.label" [attr.lang]="l.code" (click)="setLocale(l.code)">{{ shortLabel[l.code] }}</button>
+          }
+        </div>
+
         <button type="button" class="lp-icon-btn" (click)="theme.toggle()" [attr.aria-label]="'common.toggle_theme' | translate">
           <i class="bi" [class.bi-moon-stars]="theme.theme() === 'light'" [class.bi-sun]="theme.theme() === 'dark'" aria-hidden="true"></i>
         </button>
 
-        <div class="lp-dropdown">
-          <button type="button" class="lp-icon-btn" (click)="langMenuOpen.set(!langMenuOpen())"
-                  [attr.aria-label]="'common.change_language' | translate" [attr.aria-expanded]="langMenuOpen()">
-            <i class="bi bi-translate" aria-hidden="true"></i>
-          </button>
-          @if (langMenuOpen()) {
-            <div class="lp-lang-menu">
-              @for (l of locales; track l.code) {
-                <button type="button" [class.is-active]="locale.locale() === l.code" [attr.lang]="l.code" (click)="setLocale(l.code)">{{ l.label }}</button>
-              }
-            </div>
-          }
-        </div>
-
-        <a routerLink="/connexion" class="lp-nav-login lp-hide-md">{{ "auth.sign_in" | translate }}</a>
-        <a routerLink="/inscription" class="lp-btn lp-btn--sm lp-hide-md">{{ "landing.cta_start" | translate }}</a>
+        <a routerLink="/connexion" class="lp-btn lp-btn--ghost lp-hide-md">{{ "auth.sign_in" | translate }}</a>
+        <a routerLink="/inscription" class="lp-btn lp-btn--ink lp-hide-md">{{ "landing.cta_start" | translate }}</a>
 
         <button type="button" class="lp-icon-btn lp-nav-burger" (click)="mobileOpen.set(!mobileOpen())"
                 [attr.aria-label]="'landing.nav_menu' | translate" [attr.aria-expanded]="mobileOpen()">
@@ -51,7 +44,7 @@
       <a [routerLink]="['/']" fragment="faq" (click)="mobileOpen.set(false)">{{ "landing.footer_faq" | translate }}</a>
       <div class="lp-mobile-cta">
         <a routerLink="/connexion" class="lp-btn lp-btn--ghost" (click)="mobileOpen.set(false)">{{ "auth.sign_in" | translate }}</a>
-        <a routerLink="/inscription" class="lp-btn" (click)="mobileOpen.set(false)">{{ "landing.cta_start" | translate }}</a>
+        <a routerLink="/inscription" class="lp-btn lp-btn--lime" (click)="mobileOpen.set(false)">{{ "landing.cta_start" | translate }}</a>
       </div>
     </div>
   </header>
@@ -60,35 +53,41 @@
     <!-- HERO -->
     <section class="lp-shell lp-hero">
       <div class="lp-hero-copy">
-        <span class="lp-kicker lp-kicker--rule">{{ "landing.eyebrow" | translate }}</span>
+        <span class="lp-badge"><span class="lp-badge-dot" aria-hidden="true"></span>{{ "landing.eyebrow" | translate }}</span>
         <h1 class="lp-h1">
-          {{ "landing.hero_title_1" | translate }}
+          {{ "landing.hero_h_1" | translate }}
+          <span class="lp-hl">{{ "landing.hero_h_hl" | translate }}</span>
           <em>{{ "landing.hero_title_2" | translate }}</em>
         </h1>
         <p class="lp-lead">{{ "landing.hero_subtitle" | translate }}</p>
         <div class="lp-hero-cta">
-          <a routerLink="/inscription" class="lp-btn lp-btn--lg">
+          <a routerLink="/inscription" class="lp-btn lp-btn--lime lp-btn--lg">
             {{ "landing.hero_cta_primary" | translate }}
             <i class="bi bi-arrow-right lp-arrow" aria-hidden="true"></i>
           </a>
           <a href="mailto:contact@fitora.io" class="lp-btn lp-btn--ghost lp-btn--lg">{{ "landing.hero_cta_demo" | translate }}</a>
         </div>
-        <ul class="lp-hero-points">
+        <ul class="lp-points">
           @for (p of heroPoints; track p) {
-            <li><i class="bi bi-check-lg" aria-hidden="true"></i>{{ p | translate }}</li>
+            <li><span class="lp-tick" aria-hidden="true"><i class="bi bi-check-lg"></i></span>{{ p | translate }}</li>
           }
         </ul>
+        <dl class="lp-stats">
+          <div><dt>0</dt><dd>{{ "landing.number_no_clash_short" | translate }}</dd></div>
+          <div><dt>3</dt><dd>{{ "landing.number_languages_short" | translate }}</dd></div>
+          <div><dt>{{ "landing.number_trial_value" | translate }}</dt><dd>{{ "landing.number_trial_short" | translate }}</dd></div>
+        </dl>
       </div>
 
-      <!-- Today at one gym, built from divs. Illustrative data. -->
-      <div class="lp-today" aria-hidden="true">
-        <div class="lp-today-card">
+      <!-- Today at one studio, built from divs. Illustrative data. -->
+      <div class="lp-stage" aria-hidden="true">
+        <div class="lp-today">
           <div class="lp-today-head">
             <div>
               <span class="lp-today-context">{{ "landing.panel_today" | translate }} · {{ "landing.panel_context" | translate }}</span>
               <span class="lp-today-date">{{ todayLabel() }}</span>
             </div>
-            <span class="lp-pill">{{ "landing.panel_classes_count" | translate: { count: 12 } }}</span>
+            <span class="lp-pill-lime">{{ "landing.panel_classes_count" | translate: { count: 12 } }}</span>
           </div>
           <ul class="lp-today-list">
             @for (c of todayClasses; track c.time) {
@@ -102,6 +101,8 @@
                   <span class="lp-today-count">
                     @if (isFull(c)) {
                       {{ "landing.panel_full_waitlist" | translate: { count: c.waitlist } }}
+                    } @else if (c.capacity === 1) {
+                      {{ "landing.panel_booked" | translate }}
                     } @else {
                       {{ c.booked }} / {{ c.capacity }}
                     }
@@ -113,108 +114,338 @@
           </ul>
         </div>
 
-        <div class="lp-today-chip">
-          <span class="lp-today-chip-k">{{ "landing.panel_collected_today" | translate }}</span>
-          <span class="lp-today-chip-v">1 240 <small>DT</small></span>
-          <span class="lp-today-chip-s">{{ "landing.panel_checkins" | translate }}</span>
+        <div class="lp-float lp-float--ok">
+          <span class="lp-tick"><i class="bi bi-check-lg"></i></span>{{ "landing.panel_no_clash" | translate }}
+        </div>
+        <div class="lp-float lp-float--cash">
+          <span class="lp-float-k">{{ "landing.panel_collected_today" | translate }}</span>
+          <span class="lp-float-v">1 240 <small>DT</small></span>
+          <span class="lp-float-s"><i class="bi bi-bell"></i>{{ "landing.panel_checkins" | translate }}</span>
         </div>
       </div>
     </section>
 
-    <!-- The modules, named once -->
-    <section class="lp-band">
-      <div class="lp-shell lp-band-in">
-        @for (b of band; track b; let last = $last) {
-          <span class="lp-band-item">{{ b | translate }}</span>
-          @if (!last) { <span class="lp-band-dot" aria-hidden="true"></span> }
+    <!-- TICKER — the modules, named once -->
+    <div class="lp-ticker" aria-hidden="true">
+      <div class="lp-ticker-track">
+        @for (copy of [0, 1]; track copy) {
+          <div class="lp-ticker-set">
+            @for (b of band; track b) {
+              <span>{{ b | translate }}</span>
+              <i class="bi bi-stars"></i>
+            }
+          </div>
         }
+      </div>
+    </div>
+
+    <!-- BEFORE / WITH -->
+    <section class="lp-section lp-section--alt">
+      <div class="lp-shell lp-split">
+        <div>
+          <span class="lp-kicker">{{ "landing.before_kicker" | translate }}</span>
+          <h2 class="lp-h2">
+            {{ "landing.before_title_1" | translate }}
+            <em>{{ "landing.before_title_2" | translate }}</em>
+          </h2>
+          <ul class="lp-pains">
+            @for (p of pains; track p) {
+              <li><span class="lp-x" aria-hidden="true"><i class="bi bi-x-lg"></i></span>{{ p | translate }}</li>
+            }
+          </ul>
+        </div>
+
+        <div class="lp-dark lp-with">
+          <span class="lp-pill-lime">{{ "landing.with_badge" | translate }}</span>
+          <h3>
+            {{ "landing.with_title_1" | translate }}
+            <em>{{ "landing.with_title_2" | translate }}</em>
+          </h3>
+          <ul class="lp-wins">
+            @for (w of wins; track w.n) {
+              <li>
+                <span class="lp-win-ic" aria-hidden="true"><i class="bi" [class]="w.icon"></i></span>
+                <span>
+                  <b>{{ "landing.win_" + w.n + "_t" | translate }}</b>
+                  <span>{{ "landing.win_" + w.n + "_d" | translate }}</span>
+                </span>
+              </li>
+            }
+          </ul>
+          <div class="lp-with-foot">
+            <span>{{ "landing.stats_benefit_1" | translate }}</span>
+            <span>{{ "landing.stats_benefit_4" | translate }}</span>
+            <span>{{ "landing.pricing_item_6" | translate }}</span>
+          </div>
+        </div>
       </div>
     </section>
 
     <!-- FEATURES -->
     <section class="lp-shell lp-section" id="features">
-      <div class="lp-split-head">
+      <div class="lp-head">
+        <span class="lp-kicker">{{ "landing.features_kicker" | translate }}</span>
         <h2 class="lp-h2">
           {{ "landing.features_title" | translate }}
-          <em class="lp-em-quiet">{{ "landing.features_title_2" | translate }}</em>
+          <em>{{ "landing.features_title_2" | translate }}</em>
         </h2>
         <p class="lp-lead">{{ "landing.features_lead" | translate }}</p>
       </div>
-      <ol class="lp-features">
-        @for (f of features; track f.title; let i = $index) {
-          <li>
-            <span class="lp-feature-n">0{{ i + 1 }}</span>
+      <div class="lp-features">
+        @for (f of features; track f.title) {
+          <article class="lp-feature">
+            <div class="lp-feature-top">
+              <span class="lp-feature-ic" aria-hidden="true"><i class="bi" [class]="f.icon"></i></span>
+              @if (f.pro) {
+                <span class="lp-pro">Pro</span>
+              }
+            </div>
             <h3>{{ f.title | translate }}</h3>
             <p>{{ f.text | translate }}</p>
-          </li>
+          </article>
         }
-      </ol>
+      </div>
     </section>
 
-    <!-- FLOW -->
-    <section class="lp-flow" id="flow">
-      <div class="lp-flow-head">
-        <span class="lp-kicker">{{ "landing.flow_kicker" | translate }}</span>
-        <h2 class="lp-h2">
-          {{ "landing.flow_title_1" | translate }}
-          <em>{{ "landing.flow_title_2" | translate }}</em>
-        </h2>
-        <p class="lp-lead">{{ "landing.flow_lead" | translate }}</p>
-      </div>
-      <ol class="lp-flow-steps">
-        @for (n of steps; track n) {
+    <!-- FLOW — three moments, each as the screen it happens on -->
+    <section class="lp-section lp-section--alt" id="flow">
+      <div class="lp-shell">
+        <div class="lp-head">
+          <span class="lp-kicker">{{ "landing.flow_kicker" | translate }}</span>
+          <h2 class="lp-h2">
+            {{ "landing.flow_title_1" | translate }}
+            <em>{{ "landing.flow_title_2" | translate }}</em>
+          </h2>
+          <p class="lp-lead">{{ "landing.flow_lead" | translate }}</p>
+        </div>
+
+        <ol class="lp-flow">
+          <!-- 1. The trial, with the health note the coach will see -->
           <li>
-            <span class="lp-flow-n">{{ n }}</span>
-            <h3>{{ "landing.flow_" + n + "_t" | translate }}</h3>
-            <p>{{ "landing.flow_" + n + "_d" | translate }}</p>
+            <div class="lp-mock" aria-hidden="true">
+              <div class="lp-mock-person">
+                <span class="lp-av">NB</span>
+                <span><b>Nour Ben Ali</b><small>{{ "landing.mock_prospect" | translate }}</small></span>
+                <span class="lp-pill-lime lp-pill-lime--sm">{{ "landing.mock_trial" | translate }}</span>
+              </div>
+              <div class="lp-mock-box">
+                <i class="bi bi-calendar3"></i>
+                <span><b>{{ bookingDays()[0].weekday }} {{ bookingDays()[0].date }} · 10:00</b><small>Pilates Reformer · Studio · Sarah</small></span>
+              </div>
+              <div class="lp-mock-alert">
+                <i class="bi bi-exclamation-triangle"></i>
+                <span>
+                  <b>{{ "landing.mock_contra_k" | translate }}</b>
+                  <span class="lp-mock-alert-v">{{ "landing.mock_contra_v" | translate }}</span>
+                  <small>{{ "landing.mock_contra_who" | translate }}</small>
+                </span>
+              </div>
+              <span class="lp-mock-btn">{{ "landing.mock_book_trial" | translate }}</span>
+            </div>
+            <div class="lp-flow-cap">
+              <span class="lp-flow-n">1</span>
+              <span><b>{{ "landing.flow_1_t" | translate }}</b><span>{{ "landing.flow_1_d" | translate }}</span></span>
+            </div>
           </li>
-        }
-      </ol>
+
+          <!-- 2. The pack, and a slot picked against it — the picker works -->
+          <li>
+            <div class="lp-mock">
+              <div class="lp-mock-pack" aria-hidden="true">
+                <span><b>{{ "landing.mock_pack" | translate }}</b><small>{{ "landing.mock_pack_valid" | translate }}</small></span>
+                <strong>7<small> / 10</small></strong>
+              </div>
+              <div class="lp-mock-segs" aria-hidden="true">
+                @for (s of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]; track s) {
+                  <span [class.is-used]="s < 3"></span>
+                }
+              </div>
+              <div class="lp-days" role="group" [attr.aria-label]="'landing.mock_pick_day' | translate">
+                @for (d of bookingDays(); track $index) {
+                  <button type="button" [class.is-on]="selectedDay() === $index" [attr.aria-pressed]="selectedDay() === $index" (click)="pickDay($index)">
+                    <small>{{ d.weekday }}</small>{{ d.date }}
+                  </button>
+                }
+              </div>
+              <div class="lp-times" role="group" [attr.aria-label]="'landing.mock_pick_slot' | translate">
+                @for (t of slotTimes; track t) {
+                  <button type="button" [class.is-on]="!isTaken(t) && selectedSlot() === t" [class.is-taken]="isTaken(t)"
+                          [disabled]="isTaken(t)" [attr.aria-pressed]="!isTaken(t) && selectedSlot() === t" (click)="pickSlot(t)">{{ t }}</button>
+                }
+              </div>
+              <div class="lp-mock-foot" aria-hidden="true"><span>{{ "landing.mock_reminder" | translate }}</span><b>{{ "landing.mock_balance_after" | translate }}</b></div>
+            </div>
+            <div class="lp-flow-cap">
+              <span class="lp-flow-n">2</span>
+              <span><b>{{ "landing.flow_2_t" | translate }}</b><span>{{ "landing.flow_2_d" | translate }}</span></span>
+            </div>
+          </li>
+
+          <!-- 3. The till catches up -->
+          <li>
+            <div class="lp-mock" aria-hidden="true">
+              <div class="lp-receipt">
+                <div><span>{{ "landing.mock_pack" | translate }}</span><b>450 DT</b></div>
+                <div><span>{{ "landing.mock_trial_session" | translate }}</span><b>25 DT</b></div>
+                <div class="lp-receipt-total"><span>{{ "landing.f_payments_total" | translate }}</span><b>475 DT</b></div>
+              </div>
+              <span class="lp-sent"><i class="bi bi-send-check"></i>{{ "landing.mock_receipt_sent" | translate }}</span>
+              <div class="lp-mock-foot lp-mock-foot--push"><span>{{ "landing.panel_revenue" | translate }}</span><b>{{ "landing.panel_trend" | translate }}</b></div>
+              <div class="lp-spark">
+                @for (h of [38, 52, 44, 60, 56, 72, 66, 84, 100]; track $index; let last = $last) {
+                  <span [style.height.%]="h" [class.is-hi]="last"></span>
+                }
+              </div>
+            </div>
+            <div class="lp-flow-cap">
+              <span class="lp-flow-n">3</span>
+              <span><b>{{ "landing.flow_3_t" | translate }}</b><span>{{ "landing.flow_3_d" | translate }}</span></span>
+            </div>
+          </li>
+        </ol>
+      </div>
     </section>
 
-    <!-- PRICING — the trial; the monthly price depends on the modules kept -->
-    <section class="lp-shell lp-section lp-pricing" id="pricing">
-      <div class="lp-pricing-copy">
-        <span class="lp-kicker">{{ "landing.pricing_kicker" | translate }}</span>
+    <!-- EVERY SCREEN -->
+    <section class="lp-shell lp-section">
+      <div class="lp-head lp-head--start">
+        <span class="lp-kicker">{{ "landing.screens_kicker" | translate }}</span>
         <h2 class="lp-h2">
-          {{ "landing.pricing_title_1" | translate }}
-          <em>{{ "landing.pricing_title_2" | translate }}</em>
+          {{ "landing.screens_title_1" | translate }}
+          <em>{{ "landing.screens_title_2" | translate }}</em>
         </h2>
-        <p class="lp-lead">{{ "landing.pricing_lead" | translate }}</p>
+        <p class="lp-lead">{{ "landing.screens_lead" | translate }}</p>
       </div>
 
-      <div class="lp-plan">
-        <div class="lp-plan-head">
-          <span class="lp-plan-name">{{ "landing.pricing_plan" | translate }}</span>
-          <span class="lp-pill lp-pill--accent">{{ "landing.pricing_badge" | translate }}</span>
+      <div class="lp-bento">
+        <div class="lp-tile lp-tile--wide">
+          <span class="lp-tile-label"><i aria-hidden="true"></i>{{ "landing.screens_web" | translate }}</span>
+          <div class="lp-kpis" aria-hidden="true">
+            <div><small>{{ "landing.screens_kpi_sessions" | translate }}</small><b>12</b></div>
+            <div><small>{{ "landing.panel_present" | translate }}</small><b>38</b></div>
+            <div class="is-lime"><small>{{ "landing.f_payments_total" | translate }}</small><b>1 240 <em>DT</em></b></div>
+          </div>
+          <div class="lp-chart" aria-hidden="true">
+            <div class="lp-chart-k"><span>{{ "landing.screens_chart" | translate }}</span><span>{{ "landing.screens_expiring" | translate }}</span></div>
+            <svg viewBox="0 0 600 120" preserveAspectRatio="none">
+              <path class="lp-chart-area" d="M0 92 C 40 88, 70 70, 110 74 S 180 96, 220 80 S 300 46, 340 54 S 420 70, 460 44 S 540 18, 600 22 L 600 120 L 0 120 Z" />
+              <path class="lp-chart-line" d="M0 92 C 40 88, 70 70, 110 74 S 180 96, 220 80 S 300 46, 340 54 S 420 70, 460 44 S 540 18, 600 22" />
+            </svg>
+          </div>
         </div>
-        <div class="lp-plan-price">
-          <span class="lp-plan-big">{{ "landing.pricing_big" | translate }}</span>
-          <span class="lp-plan-small">{{ "landing.pricing_small" | translate }}</span>
+
+        <div class="lp-tile lp-tile--tint">
+          <span class="lp-tile-label"><i aria-hidden="true"></i>{{ "landing.screens_coach" | translate }}<span class="lp-pro">Pro</span></span>
+          <ul class="lp-coach" aria-hidden="true">
+            <li><span>07:30</span><b>EMS</b><small>Cabine 1</small></li>
+            <li><span>12:30</span><b>Coaching privé</b><small>Studio 2</small></li>
+            <li><span>18:30</span><b>Yoga Vinyasa</b><small>9 / 14</small></li>
+          </ul>
+          <p>{{ "landing.screens_coach_d" | translate }}</p>
         </div>
-        <ul class="lp-plan-items">
-          @for (item of pricingItems; track item) {
+
+        <div class="lp-tile">
+          <span class="lp-tile-label"><i aria-hidden="true"></i>{{ "landing.screens_member" | translate }}<span class="lp-pro">Pro</span></span>
+          <h3>{{ "landing.screens_member_t" | translate }}</h3>
+          <p>{{ "landing.screens_member_d" | translate }}</p>
+        </div>
+
+        <div class="lp-tile">
+          <span class="lp-tile-label"><i aria-hidden="true"></i>{{ "landing.screens_team" | translate }}</span>
+          <h3>{{ "landing.screens_team_t" | translate }}</h3>
+          <div class="lp-roles">
+            <span class="is-own">{{ "landing.role_admin" | translate }}</span>
+            <span>{{ "landing.role_desk" | translate }}</span>
+            <span>{{ "landing.role_practitioner" | translate }}</span>
+          </div>
+          <p>{{ "landing.screens_team_d" | translate }}</p>
+        </div>
+
+        <div class="lp-tile lp-tile--lime">
+          <span class="lp-langs">Français. English. <span lang="ar" dir="rtl">العربية</span>.</span>
+          <p>{{ "landing.screens_langs_d" | translate }}</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRICING — the two plans; the trial opens both -->
+    <section class="lp-section lp-section--alt" id="pricing">
+      <div class="lp-shell">
+        <div class="lp-head">
+          <span class="lp-kicker">{{ "landing.pricing_kicker" | translate }}</span>
+          <h2 class="lp-h2">
+            {{ "landing.pricing_title_1" | translate }}
+            <em>{{ "landing.pricing_title_2" | translate }}</em>
+          </h2>
+          <p class="lp-lead">{{ "landing.pricing_lead_plans" | translate }}</p>
+        </div>
+
+        <div class="lp-billing" role="group" [attr.aria-label]="'landing.billing_label' | translate">
+          <button type="button" [class.is-on]="billing() === 'monthly'" [attr.aria-pressed]="billing() === 'monthly'" (click)="billing.set('monthly')">
+            {{ "landing.billing_monthly" | translate }}
+          </button>
+          <button type="button" [class.is-on]="billing() === 'yearly'" [attr.aria-pressed]="billing() === 'yearly'" (click)="billing.set('yearly')">
+            {{ "landing.billing_yearly" | translate }} <small>−{{ annualDiscount }} %</small>
+          </button>
+        </div>
+
+        <div class="lp-plans">
+          @for (plan of plans; track plan.key) {
+            <article class="lp-plan" [class.is-featured]="plan.key === 'pro'">
+              <div class="lp-plan-head">
+                <h3>{{ "landing.plan_" + plan.key | translate }}</h3>
+                @if (plan.key === "pro") {
+                  <span class="lp-pill-lime">{{ "landing.plan_pro_badge" | translate }}</span>
+                }
+              </div>
+              <p class="lp-plan-for">{{ "landing.plan_" + plan.key + "_for" | translate }}</p>
+              <div class="lp-plan-price">
+                <b>{{ priceOf(plan) }}</b>
+                <span>DT / {{ (billing() === "monthly" ? "landing.per_month" : "landing.per_year") | translate }}</span>
+              </div>
+              <ul class="lp-plan-items">
+                @for (item of plan.items; track item) {
+                  <li><span class="lp-tick" aria-hidden="true"><i class="bi bi-check-lg"></i></span>{{ item | translate }}</li>
+                }
+              </ul>
+              <a routerLink="/inscription" class="lp-btn lp-btn--lg lp-btn--block" [class.lp-btn--lime]="plan.key === 'pro'" [class.lp-btn--ink]="plan.key !== 'pro'">
+                {{ "landing.hero_cta_primary" | translate }}
+              </a>
+            </article>
+          }
+        </div>
+
+        <ul class="lp-included">
+          @for (item of included; track item) {
             <li><i class="bi bi-check-lg" aria-hidden="true"></i>{{ item | translate }}</li>
           }
         </ul>
-        <p class="lp-plan-after">{{ "landing.pricing_after" | translate }}</p>
-        <a routerLink="/inscription" class="lp-btn lp-btn--lg lp-btn--block">{{ "auth.register_cta" | translate }}</a>
       </div>
     </section>
 
     <!-- FAQ -->
     <section class="lp-shell lp-section lp-faq" id="faq">
-      <h2 class="lp-h2">
-        {{ "landing.faq_title_1" | translate }}
-        <em>{{ "landing.faq_title_2" | translate }}</em>
-      </h2>
+      <div>
+        <span class="lp-kicker">{{ "landing.faq_kicker" | translate }}</span>
+        <h2 class="lp-h2">
+          {{ "landing.faq_title_1" | translate }}
+          <em>{{ "landing.faq_title_2" | translate }}</em>
+        </h2>
+        <div class="lp-help">
+          <i class="bi bi-headset" aria-hidden="true"></i>
+          <span>
+            <b>{{ "landing.faq_more" | translate }}</b>
+            <span>{{ "landing.faq_more_d" | translate }} — <a href="mailto:contact@fitora.io">contact&#64;fitora.io</a></span>
+          </span>
+        </div>
+      </div>
       <div class="lp-faq-list">
         @for (i of faqs; track i) {
           <div class="lp-faq-item" [class.is-open]="openFaq() === i">
             <h3>
               <button type="button" (click)="toggleFaq(i)" [attr.aria-expanded]="openFaq() === i" [attr.aria-controls]="'faq-a-' + i">
                 <span>{{ "landing.faq_q_" + i | translate }}</span>
-                <i class="bi" [class.bi-plus-lg]="openFaq() !== i" [class.bi-dash-lg]="openFaq() === i" aria-hidden="true"></i>
+                <span class="lp-faq-ic" aria-hidden="true"><i class="bi" [class.bi-plus-lg]="openFaq() !== i" [class.bi-dash-lg]="openFaq() === i"></i></span>
               </button>
             </h3>
             <div class="lp-faq-a" [id]="'faq-a-' + i" [hidden]="openFaq() !== i">{{ "landing.faq_a_" + i | translate }}</div>
@@ -223,30 +454,78 @@
       </div>
     </section>
 
-    <!-- FINAL CTA -->
-    <section class="lp-final">
-      <h2 class="lp-h2">
-        {{ "landing.final_title_1" | translate }}
-        <em>{{ "landing.final_title_2" | translate }}</em>
-      </h2>
-      <div class="lp-final-cta">
-        <a routerLink="/inscription" class="lp-btn lp-btn--lg lp-btn--invert">{{ "landing.hero_cta_primary" | translate }}</a>
-        <span>{{ "landing.final_lead" | translate }}</span>
+    <!-- CLOSING — the form hands its two fields over to /inscription -->
+    <section class="lp-shell lp-closing-wrap" id="start">
+      <div class="lp-dark lp-closing">
+        <div class="lp-closing-copy">
+          <span class="lp-badge lp-badge--dark"><span class="lp-badge-dot" aria-hidden="true"></span>{{ "landing.stats_benefit_1" | translate }}</span>
+          <h2 class="lp-h2">
+            {{ "landing.final_title_1" | translate }}
+            <em>{{ "landing.final_title_2" | translate }}</em>
+          </h2>
+          <p>{{ "landing.final_lead" | translate }}</p>
+          <ul class="lp-points">
+            <li><span class="lp-tick" aria-hidden="true"><i class="bi bi-check-lg"></i></span>{{ "landing.hero_point_1" | translate }}</li>
+            <li><span class="lp-tick" aria-hidden="true"><i class="bi bi-check-lg"></i></span>{{ "landing.pricing_item_6" | translate }}</li>
+          </ul>
+        </div>
+
+        <form class="lp-start" [formGroup]="startForm" (ngSubmit)="start()" novalidate>
+          <div class="lp-field">
+            <label for="lp-first">{{ "coaches.first_name" | translate }}</label>
+            <input id="lp-first" type="text" formControlName="first_name" autocomplete="given-name" />
+          </div>
+          <div class="lp-field">
+            <label for="lp-email">{{ "auth.email" | translate }}</label>
+            <input id="lp-email" type="email" formControlName="email" autocomplete="email" dir="ltr" placeholder="vous@studio.tn" />
+            @if (startForm.controls.email.invalid && startForm.controls.email.touched) {
+              <span class="lp-field-err">{{ "landing.start_email_invalid" | translate }}</span>
+            }
+          </div>
+          <button type="submit" class="lp-btn lp-btn--lime lp-btn--lg lp-btn--block">
+            {{ "landing.hero_cta_primary" | translate }}
+            <i class="bi bi-arrow-right lp-arrow" aria-hidden="true"></i>
+          </button>
+          <p class="lp-start-foot">{{ "landing.start_foot" | translate }} <a href="mailto:contact@fitora.io">{{ "landing.hero_cta_demo" | translate }}</a></p>
+        </form>
       </div>
     </section>
   </main>
 
-  <footer class="lp-shell lp-foot">
-    <div class="lp-foot-brand">
-      <span class="lp-brand">Fitora</span>
-      <p>{{ "landing.footer_tag" | translate }}</p>
+  <footer class="lp-foot">
+    <div class="lp-shell">
+      <div class="lp-foot-grid">
+        <div>
+          <a routerLink="/" class="lp-brand">
+            <span class="lp-brand-mark" aria-hidden="true">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 4v16M18 4v16M3 8v8M21 8v8M6 12h12" /></svg>
+            </span>
+            Fitora
+          </a>
+          <p>{{ "landing.footer_tag" | translate }}</p>
+        </div>
+        <nav [attr.aria-label]="'landing.footer_col_product' | translate">
+          <h3>{{ "landing.footer_col_product" | translate }}</h3>
+          <a [routerLink]="['/']" fragment="features">{{ "landing.nav_features" | translate }}</a>
+          <a [routerLink]="['/']" fragment="flow">{{ "landing.nav_how" | translate }}</a>
+          <a [routerLink]="['/']" fragment="pricing">{{ "landing.pricing_kicker" | translate }}</a>
+          <a [routerLink]="['/']" fragment="faq">{{ "landing.footer_faq" | translate }}</a>
+        </nav>
+        <nav [attr.aria-label]="'landing.footer_col_account' | translate">
+          <h3>{{ "landing.footer_col_account" | translate }}</h3>
+          <a routerLink="/connexion">{{ "auth.sign_in" | translate }}</a>
+          <a routerLink="/inscription">{{ "landing.cta_start" | translate }}</a>
+        </nav>
+        <nav [attr.aria-label]="'landing.footer_contact' | translate">
+          <h3>{{ "landing.footer_contact" | translate }}</h3>
+          <a href="mailto:contact@fitora.io">contact&#64;fitora.io</a>
+          <a [routerLink]="['/']" fragment="faq">{{ "landing.stats_benefit_3" | translate }}</a>
+        </nav>
+      </div>
+      <div class="lp-foot-bottom">
+        <span>© {{ year() }} Fitora. {{ "landing.footer_rights" | translate }}</span>
+        <span>{{ "landing.footer_made" | translate }}</span>
+      </div>
     </div>
-    <nav class="lp-foot-links" [attr.aria-label]="'landing.footer_col_product' | translate">
-      <a [routerLink]="['/']" fragment="features">{{ "landing.nav_features" | translate }}</a>
-      <a [routerLink]="['/']" fragment="pricing">{{ "landing.pricing_kicker" | translate }}</a>
-      <a href="mailto:contact@fitora.io">{{ "landing.footer_contact" | translate }}</a>
-      <a routerLink="/connexion">{{ "auth.sign_in" | translate }}</a>
-    </nav>
-    <p class="lp-foot-copy">© {{ year() }} Fitora. {{ "landing.footer_rights" | translate }}</p>
   </footer>
 </div>

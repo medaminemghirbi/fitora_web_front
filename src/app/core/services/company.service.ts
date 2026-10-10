@@ -1,6 +1,7 @@
 import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
-import { Observable } from "rxjs";
+import { Observable, tap } from "rxjs";
+import { activeCompany } from "../auth/active-company";
 import { API_BASE_URL } from "../models/api-config";
 import { CustomActivity } from "../models/activity-template.model";
 import { Company } from "../models/company.model";
@@ -20,6 +21,7 @@ export interface NetworkModerator {
   full_name: string;
   email: string;
   role_name: string;
+  role_key: string;
   active: boolean;
   company_ids: string[];
 }
@@ -40,7 +42,7 @@ export class CompanyService {
   }
 
   // The admin's first salle, or another under the same login — as many as
-  // they like on Pro (or the trial), one on Starter; the backend refuses
+  // they like on a paid Pro account, one on Starter and the trial; the backend refuses
   // the rest with 403 multi_salle_not_included. Becomes the active company.
   //
   // What it teaches can come in the same request — templates picked from
@@ -58,9 +60,12 @@ export class CompanyService {
     return this.http.get<{ companies: CompanySummary[] }>(`${API_BASE_URL}/companies`);
   }
 
-  // Moves the session onto another of this login's OWN salles.
+  // Moves this tab onto another of this login's OWN salles, and saves it as
+  // the salle a new tab or the next login opens on.
   switchTo(companyId: string): Observable<{ company: Company }> {
-    return this.http.post<{ company: Company }>(`${API_BASE_URL}/companies/${companyId}/switch`, {});
+    return this.http
+      .post<{ company: Company }>(`${API_BASE_URL}/companies/${companyId}/switch`, {})
+      .pipe(tap(() => activeCompany.set(companyId)));
   }
 
   // The admin's "Mes salles" page: every salle, every moderator, and who

@@ -23,12 +23,14 @@ export interface BootstrapSubscription {
   trial: boolean;
   /** Free days left, today included. null outside a trial. */
   trial_days_left: number | null;
-  /** The account's plan — the same for every salle it runs. */
-  plan: PlanKey;
-  /** Whether members can sign in to their app: Pro, or a free trial. */
+  /** The account's plan — the same for every salle it runs. null on the free trial: nothing chosen yet. */
+  plan: PlanKey | null;
+  /** Whether members can sign in to their app: paid Pro only, locked on the trial. */
   member_app: boolean;
-  /** Whether the account may open another salle: Pro, or a free trial. */
+  /** Whether the account may open another salle: paid Pro only, locked on the trial. */
   multi_salle: boolean;
+  /** Pro's tools — several salles, custom roles, branding, CSV import / export: paid Pro only, locked on the trial. */
+  pro_features: boolean;
 }
 
 export interface CompanyRole {
@@ -99,7 +101,18 @@ export class ConfigurationService {
    * known yet, so a screen never greys out a button the backend would allow.
    */
   readonly memberApp = computed(() => this.state()?.subscription?.member_app ?? true);
+  /**
+   * Whether Pro's tools are open: several salles, custom roles, branding,
+   * CSV import / export (paid Pro only — locked on the trial). True until known, like
+   * memberApp — the backend refuses them on Starter anyway.
+   */
+  readonly proFeatures = computed(() => this.state()?.subscription?.pro_features ?? true);
   readonly onboarding = computed(() => this.state()?.onboarding ?? null);
+
+  /** Replace the cached roles after the roles editor changes them. */
+  setRoles(roles: CompanyRole[]): void {
+    this.state.update((s) => (s ? { ...s, roles } : s));
+  }
 
   // The company's name for a built-in role (e.g. "coach" → "Praticien" for a
   // medical practice). Falls back to the raw key humanised.

@@ -1,126 +1,173 @@
-<div class="app-card">
-  <div class="app-card-header">
-    <div>
-      <p class="fx-muted mb-0" style="font-size: 0.8125rem">{{ "settings.role_hint" | translate }}</p>
+@if (loading()) {
+  <app-skeleton variant="table" [rows]="8" [cols]="4" />
+} @else if (loadError()) {
+  <div class="app-card"><div class="app-card-body"><app-error-state (retry)="load()" /></div></div>
+} @else {
+  <div class="rm">
+    <div class="rm-tools">
+      <label class="rm-search">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input type="search" [ngModel]="query()" (ngModelChange)="query.set($event)"
+               [placeholder]="'settings.role_search_perm' | translate" [attr.aria-label]="'settings.role_search_perm' | translate" />
+      </label>
+      <div class="rm-legend" aria-hidden="true">
+        <span><span class="rm-box is-on rm-box--mini"><i class="bi bi-check-lg"></i></span>{{ "settings.role_legend_allowed" | translate }}</span>
+        <span><span class="rm-box is-locked rm-box--mini"><i class="bi bi-check-lg"></i></span>{{ "settings.role_legend_always" | translate }}</span>
+      </div>
+      <button type="button" class="btn btn-primary rm-new" (click)="startCreate()">
+        <i class="bi bi-plus-lg" aria-hidden="true"></i> {{ "settings.role_new" | translate }}
+      </button>
     </div>
-    <button type="button" class="btn btn-primary btn-sm" (click)="openCreate()">
-      <i class="bi bi-plus-lg"></i> {{ "settings.role_new" | translate }}
-    </button>
-  </div>
 
-  @if (loading()) {
-    <div class="app-card-body"><app-skeleton variant="table" [rows]="4" [cols]="3" /></div>
-  } @else if (roles().length === 0) {
-    <div class="app-card-body">
-      <app-empty-state [title]="'settings.role_empty' | translate" body="" icon="bi-shield-lock" />
-    </div>
-  } @else {
-    <div class="fx-table-scroll">
-      <table class="table table-hover">
+    <div class="rm-card">
+      <table class="rm-table">
         <thead>
           <tr>
-            <th>{{ "settings.role_name" | translate }}</th>
-            <th>{{ "settings.role_accounts" | translate }}</th>
-            <th class="text-end">{{ "common.actions" | translate }}</th>
+            <th scope="col" class="rm-perm-head">{{ "settings.role_col_permission" | translate }}</th>
+            @for (role of columns(); track role.id) {
+              <th scope="col">
+                <div class="rm-col">
+                  <span class="rm-col-ic" [class.is-admin]="isLocked(role)" aria-hidden="true"><i class="bi bi-shield-check"></i></span>
+                  <span class="rm-col-name">{{ role.name }}</span>
+                  <span class="rm-col-meta">
+                    {{ "settings.role_perm_count" | translate: { count: roleCount(role), total: totalPerms() } }}
+                  </span>
+                  <span class="rm-col-meta">
+                    {{ accountsLabel(role) }}
+                    @if (isCappedRole(role)) { · {{ "settings.role_one_seat_short" | translate }} }
+                  </span>
+                  @if (!role.builtin) {
+                    <span class="rm-col-actions">
+                      <button type="button" class="rm-icon-btn" (click)="startRename(role)" [attr.aria-label]="('settings.role_rename' | translate) + ' ' + role.name">
+                        <i class="bi bi-pencil" aria-hidden="true"></i>
+                      </button>
+                      @if (role.deletable) {
+                        <button type="button" class="rm-icon-btn is-danger" (click)="remove(role)" [attr.aria-label]="('common.delete' | translate) + ' ' + role.name">
+                          <i class="bi bi-trash" aria-hidden="true"></i>
+                        </button>
+                      }
+                    </span>
+                  } @else {
+                    <span class="rm-col-badge">{{ "settings.role_system_badge" | translate }}</span>
+                  }
+                </div>
+              </th>
+            }
+            <th scope="col" class="rm-add-head">
+              <button type="button" class="rm-add" (click)="startCreate()" [attr.aria-label]="'settings.role_new' | translate">
+                <i class="bi bi-plus-lg" aria-hidden="true"></i>
+              </button>
+              <span class="rm-col-meta">{{ "settings.role_new" | translate }}</span>
+            </th>
           </tr>
         </thead>
         <tbody>
-          @for (r of roles(); track r.id) {
-            <tr>
-              <td class="fx-strong">
-                {{ r.name }}
-                @if (r.builtin) {
-                  <span class="badge text-bg-secondary ms-1">{{ "settings.role_system_badge" | translate }}</span>
-                }
-              </td>
-              <td>{{ r.staff_count }}</td>
-              <td class="text-end">
-                <app-action-menu>
-                  <button type="button" class="fx-menu-item" (click)="openEdit(r)">
-                    <i class="bi bi-pencil"></i>
-                    {{ (r.key === "admin" ? "common.view" : "common.edit") | translate }}
+          @for (group of groups(); track group.id) {
+            <tr class="rm-group">
+              <th scope="rowgroup" class="rm-group-label">
+                {{ "settings.role_group_" + group.id | translate }}
+                <span>{{ group.keys.length }}</span>
+              </th>
+              @for (role of columns(); track role.id) {
+                <td>
+                  <button type="button" class="rm-box"
+                          [class.is-on]="groupState(role, group) === 'all' && !isLocked(role)"
+                          [class.is-mixed]="groupState(role, group) === 'some'"
+                          [class.is-locked]="isLocked(role)"
+                          role="checkbox"
+                          [attr.aria-checked]="groupState(role, group) === 'all' ? 'true' : groupState(role, group) === 'none' ? 'false' : 'mixed'"
+                          [attr.aria-label]="('settings.role_group_' + group.id | translate) + ' — ' + role.name"
+                          [disabled]="isLocked(role) || saving()"
+                          (click)="toggleGroup(role, group)">
+                    @if (groupState(role, group) === "all") { <i class="bi bi-check-lg" aria-hidden="true"></i> }
+                    @else if (groupState(role, group) === "some") { <i class="bi bi-dash-lg" aria-hidden="true"></i> }
                   </button>
-                  @if (r.deletable) {
-                    <div class="fx-menu-divider"></div>
-                    <button type="button" class="fx-menu-item is-danger" (click)="remove(r)">
-                      <i class="bi bi-trash"></i> {{ "common.delete" | translate }}
-                    </button>
-                  }
-                </app-action-menu>
-              </td>
+                </td>
+              }
+              <td aria-hidden="true"></td>
             </tr>
+            @for (key of group.keys; track key) {
+              <tr class="rm-row">
+                <th scope="row" class="rm-perm">
+                  <b>
+                    {{ permLabel(key) }}
+                    @if (isSensitive(key)) {
+                      <span class="rm-sensitive"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> {{ "settings.role_sensitive" | translate }}</span>
+                    }
+                  </b>
+                  @if (permHint(key); as hint) { <small>{{ hint }}</small> }
+                </th>
+                @for (role of columns(); track role.id) {
+                  <td>
+                    <button type="button" class="rm-box"
+                            [class.is-on]="isOn(role, key) && !isLocked(role)"
+                            [class.is-locked]="isLocked(role)"
+                            [class.is-changed]="isChanged(role, key)"
+                            role="checkbox"
+                            [attr.aria-checked]="isOn(role, key)"
+                            [attr.aria-label]="permLabel(key) + ' — ' + role.name"
+                            [disabled]="isLocked(role) || saving()"
+                            (click)="toggle(role, key)">
+                      @if (isOn(role, key)) { <i class="bi bi-check-lg" aria-hidden="true"></i> }
+                    </button>
+                  </td>
+                }
+                <td aria-hidden="true"></td>
+              </tr>
+            }
+          } @empty {
+            <tr><td [attr.colspan]="columns().length + 2" class="rm-empty">{{ "common.no_results" | translate }}</td></tr>
           }
         </tbody>
       </table>
     </div>
-  }
-</div>
 
-<app-modal
-  [open]="modalOpen()"
-  [title]="(editing() ? 'common.edit' : 'settings.role_new') | translate"
-  (closed)="modalOpen.set(false)"
->
-  @if (formError()) {
-    <div class="alert alert-danger">{{ formError() }}</div>
-  }
-
-  <div class="mb-3">
-    <label for="role-name">{{ "settings.role_name" | translate }} *</label>
-    <input
-      id="role-name"
-      class="form-control"
-      [ngModel]="draftName()"
-      (ngModelChange)="draftName.set($event)"
-      [disabled]="isAdminRole()"
-    />
-  </div>
-
-  @if (isAdminRole()) {
-    <p class="fx-muted" style="font-size: 0.8125rem">{{ "settings.role_admin_locked" | translate }}</p>
-  } @else {
-    <div class="mb-3">
-      <span class="fx-muted fw-semibold">{{ "settings.role_perm_group_daily" | translate }}</span>
-      @for (key of dailyPermKeys(); track key) {
-        <div class="form-check">
-          <input
-            [id]="'perm-' + key"
-            type="checkbox"
-            class="form-check-input"
-            [checked]="draftPerms().has(key)"
-            (change)="togglePerm(key)"
-          />
-          <label [for]="'perm-' + key" class="form-check-label">{{ permLabel(key) }}</label>
+    <div class="rm-foot">
+      <div class="rm-reserved">
+        <span class="rm-reserved-title"><i class="bi bi-lock" aria-hidden="true"></i> {{ "settings.role_reserved_title" | translate }}</span>
+        <div class="rm-chips">
+          @for (x of reserved; track x) {
+            <span class="rm-chip">{{ "settings.role_reserved_" + x | translate }}</span>
+          }
         </div>
-      }
+      </div>
+      <a routerLink="/admin/team" class="rm-accounts">
+        <i class="bi bi-people" aria-hidden="true"></i> {{ "settings.role_manage_accounts" | translate }}
+      </a>
     </div>
 
-    <div class="mb-3">
-      <span class="fx-muted fw-semibold">{{ "settings.role_perm_group_config" | translate }}</span>
-      <div class="form-text mb-1">{{ "settings.role_perm_group_config_hint" | translate }}</div>
-      @for (key of configPermKeys(); track key) {
-        <div class="form-check">
-          <input
-            [id]="'perm-' + key"
-            type="checkbox"
-            class="form-check-input"
-            [checked]="draftPerms().has(key)"
-            (change)="togglePerm(key)"
-          />
-          <label [for]="'perm-' + key" class="form-check-label">{{ permLabel(key) }}</label>
-        </div>
-      }
-    </div>
-  }
-
-  <div class="d-flex justify-content-end gap-2 mt-4">
-    <button type="button" class="btn btn-outline-secondary" (click)="modalOpen.set(false)">
-      {{ (isAdminRole() ? "common.close" : "common.cancel") | translate }}
-    </button>
-    @if (!isAdminRole()) {
-      <button type="button" class="btn btn-primary" [disabled]="saving()" (click)="submit()">
-        {{ (saving() ? "common.saving" : "common.save") | translate }}
-      </button>
+    @if (dirty()) {
+      <div class="rm-savebar" role="status">
+        <span>
+          {{ changeCount() === 1 ? ("settings.role_changes_one" | translate) : ("settings.role_changes_many" | translate: { count: changeCount() }) }}
+        </span>
+        <button type="button" class="btn rm-savebar-ghost" [disabled]="saving()" (click)="reset()">{{ "common.cancel" | translate }}</button>
+        <button type="button" class="btn btn-primary" [disabled]="saving()" (click)="save()">
+          {{ (saving() ? "common.saving" : "common.save") | translate }}
+        </button>
+      </div>
     }
   </div>
-</app-modal>
+
+  <app-modal [open]="nameDialog() !== null"
+             [title]="(nameDialog()?.mode === 'rename' ? 'settings.role_rename' : 'settings.role_new') | translate"
+             (closed)="closeNameDialog()">
+    <form (ngSubmit)="submitName()" novalidate>
+      @if (nameDialog()?.mode === "create") {
+        <p class="rm-dialog-hint">{{ "settings.role_new_hint" | translate }}</p>
+      }
+      <label for="rm-name" class="form-label">{{ "settings.role_name" | translate }}</label>
+      <input id="rm-name" name="name" class="form-control" [ngModel]="draftName()" (ngModelChange)="draftName.set($event)"
+             [placeholder]="'settings.role_name_placeholder' | translate" maxlength="60" />
+      @if (nameError()) {
+        <div class="invalid-feedback d-block">{{ nameError() }}</div>
+      }
+      <div class="rm-dialog-actions">
+        <button type="button" class="btn btn-outline-secondary" (click)="closeNameDialog()">{{ "common.cancel" | translate }}</button>
+        <button type="submit" class="btn btn-primary" [disabled]="savingName()">
+          {{ (savingName() ? "common.saving" : nameDialog()?.mode === "rename" ? "common.save" : "settings.role_create") | translate }}
+        </button>
+      </div>
+    </form>
+  </app-modal>
+}

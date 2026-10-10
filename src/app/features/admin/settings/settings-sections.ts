@@ -12,6 +12,10 @@ export interface SettingsSection {
   group: "establishment" | "planning" | "hr" | "appearance";
   adminOnly?: boolean;
   permission?: string;
+  /** A Pro tool: listed in the "Outils Pro" menu, locked on Starter and the trial. */
+  pro?: boolean;
+  /** One line under a Pro tool's name in that menu. */
+  shortKey?: string;
 }
 
 export interface SettingsGroup {
@@ -40,13 +44,18 @@ export class SettingsSectionsService {
 
   private readonly all: SettingsSection[] = [
     { path: "company", icon: "bi-building", labelKey: "settings.nav_company", descKey: "settings.desc_company", group: "establishment", adminOnly: true },
-    { path: "branding", icon: "bi-palette", labelKey: "settings.nav_branding", descKey: "settings.desc_branding", group: "establishment", adminOnly: true },
+    { path: "branding", icon: "bi-palette", labelKey: "settings.nav_branding", descKey: "settings.desc_branding", group: "establishment", adminOnly: true, pro: true, shortKey: "settings.short_branding" },
+    // What every contract PDF carries — signature, signatory, terms. Every
+    // plan's, so it is not under "Image de marque" (a Pro tool).
+    { path: "contracts", icon: "bi-file-earmark-text", labelKey: "settings.nav_contracts", descKey: "settings.desc_contracts", group: "establishment", adminOnly: true },
     { path: "planning", icon: "bi-calendar3", labelKey: "settings.nav_planning", descKey: "settings.desc_planning", group: "planning", adminOnly: true },
     // How this gym books. The engine has enforced these rules all along;
     // until now nothing could set them, so every gym ran on the defaults.
     { path: "booking", icon: "bi-journal-check", labelKey: "settings.nav_booking", descKey: "settings.desc_booking", group: "planning", adminOnly: true },
-    { path: "roles", icon: "bi-shield-lock", labelKey: "settings.nav_roles", descKey: "settings.desc_roles", group: "hr", adminOnly: true },
-    { path: "data-exchange", icon: "bi-arrow-down-up", labelKey: "nav.data_exchange", descKey: "settings.desc_data_exchange", group: "establishment", adminOnly: true },
+    { path: "roles", icon: "bi-shield-lock", labelKey: "settings.nav_roles", descKey: "settings.desc_roles", group: "hr", adminOnly: true, pro: true, shortKey: "settings.short_roles" },
+    { path: "data-exchange", icon: "bi-arrow-down-up", labelKey: "nav.data_exchange", descKey: "settings.desc_data_exchange", group: "establishment", adminOnly: true, pro: true, shortKey: "settings.short_data_exchange" },
+    // The keys that make the Fitora app this salle's app (a Pro tool).
+    { path: "mobile-app", icon: "bi-phone", labelKey: "settings.nav_mobile_app", descKey: "settings.desc_mobile_app", group: "establishment", adminOnly: true, pro: true, shortKey: "settings.short_mobile_app" },
   ];
 
   readonly sections = computed(() => this.all.filter((s) => this.isVisible(s)));

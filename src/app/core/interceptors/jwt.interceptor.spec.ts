@@ -4,6 +4,7 @@ import { Router } from "@angular/router";
 import { Observable, of, throwError } from "rxjs";
 import { AuthService } from "../auth/auth.service";
 import { jwtInterceptor } from "./jwt.interceptor";
+import { activeCompany } from "../auth/active-company";
 
 describe("jwtInterceptor", () => {
   let authStub: { getToken: jasmine.Spy; isAuthenticated: jasmine.Spy; logout: jasmine.Spy };
@@ -133,6 +134,39 @@ describe("jwtInterceptor", () => {
         expect(router.navigate).not.toHaveBeenCalled();
         done();
       },
+    });
+  });
+
+  describe("X-Company-Id", () => {
+    beforeEach(() => activeCompany.set(null));
+    afterEach(() => activeCompany.set(null));
+
+    function seenHeaders(): HttpRequest<unknown> {
+      let seen: HttpRequest<unknown> | undefined;
+      run((req) => {
+        seen = req;
+        return of("ok");
+      }).subscribe();
+      return seen!;
+    }
+
+    it("sends this tab's salle alongside the token", () => {
+      authStub.getToken.and.returnValue("tok123");
+      activeCompany.set("salle-2");
+
+      expect(seenHeaders().headers.get("X-Company-Id")).toBe("salle-2");
+    });
+
+    it("sends no salle when the tab has none", () => {
+      authStub.getToken.and.returnValue("tok123");
+
+      expect(seenHeaders().headers.has("X-Company-Id")).toBe(false);
+    });
+
+    it("sends no salle without a token", () => {
+      activeCompany.set("salle-2");
+
+      expect(seenHeaders().headers.has("X-Company-Id")).toBe(false);
     });
   });
 });

@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from "@angular/core";
+import { Component, Input, OnInit, inject, signal } from "@angular/core";
 import { FormBuilder, ReactiveFormsModule } from "@angular/forms";
 import { TranslateModule, TranslateService } from "@ngx-translate/core";
 import { API_ORIGIN } from "../../../core/models/api-config";
@@ -8,15 +8,39 @@ import { ToastService } from "../../../core/services/toast.service";
 import { extractErrorMessage } from "../../../core/services/error.util";
 import { SpinnerComponent } from "../../../shared/components/spinner.component";
 import { SignaturePadComponent } from "../../../shared/ui/signature-pad.component";
+import { ProLockComponent } from "../../../shared/ui/pro-lock.component";
+import { ConfigurationService } from "../../../core/configuration/configuration.service";
 
 @Component({
   selector: "app-settings-branding",
   standalone: true,
-  imports: [ReactiveFormsModule, TranslateModule, SpinnerComponent, SignaturePadComponent],
+  imports: [ReactiveFormsModule, TranslateModule, SpinnerComponent, SignaturePadComponent, ProLockComponent],
   templateUrl: "./settings-branding.component.html",
   styleUrl: "./settings-branding.component.scss",
 })
 export class SettingsBrandingComponent implements OnInit {
+  /**
+   * Which half to show. Settings splits them into two tabs: "brand" (logo,
+   * colour, identifier — a Pro tool) and "contracts" (signature, signatory,
+   * terms — every plan's). One form underneath, so either half saves the
+   * other untouched.
+   */
+  @Input() part: "all" | "brand" | "contracts" = "all";
+
+  get showBrand(): boolean {
+    return this.part !== "contracts";
+  }
+
+  get showContracts(): boolean {
+    return this.part !== "brand";
+  }
+
+  /**
+   * The gym's own look (logo, colour, identifier) is a Pro tool. On Starter
+   * that part is locked; the contract part below it is every plan's.
+   */
+  readonly proFeatures = inject(ConfigurationService).proFeatures;
+
   readonly loading = signal(true);
   readonly saving = signal(false);
   readonly formError = signal<string | null>(null);

@@ -69,7 +69,8 @@
             {{ "superadmin.restore_access" | translate }}
           </button>
         } @else {
-          <button type="button" class="btn btn-primary" [disabled]="savingInvoice()" (click)="issueInvoice()">
+          <button type="button" class="btn btn-primary" [disabled]="savingInvoice() || !plan()" (click)="issueInvoice()"
+                  [attr.title]="plan() ? null : ('superadmin.choose_plan_first' | translate)">
             {{ (savingInvoice() ? "common.saving" : "superadmin.record_payment") | translate }}
           </button>
         }
@@ -96,7 +97,11 @@
           @if (onTrial()) {
             <strong>{{ "superadmin.trial_running" | translate }}</strong>
             <span class="ac-stat-sub">
-              {{ "superadmin.trial_days_left" | translate: { days: trialDaysLeft(), plan: (("subscription.plan_" + plan()) | translate) + " · " + ((c.subscription?.billing_period === "yearly" ? "subscription.plan_yearly" : "subscription.plan_monthly") | translate | lowercase) } }}
+              @if (plan()) {
+                {{ "superadmin.trial_days_left" | translate: { days: trialDaysLeft(), plan: (("subscription.plan_" + plan()) | translate) + " · " + ((c.subscription?.billing_period === "yearly" ? "subscription.plan_yearly" : "subscription.plan_monthly") | translate | lowercase) } }}
+              } @else {
+                {{ "superadmin.trial_days_left_no_plan" | translate: { days: trialDaysLeft() } }}
+              }
             </span>
           } @else {
             <strong>{{ ("subscription.plan_" + plan()) | translate }}</strong>
@@ -105,7 +110,10 @@
         </div>
         <div class="ac-stat">
           <span class="ac-stat-label">{{ "superadmin.subscription_title" | translate }}</span>
-          @if (c.subscription?.billing_period === "yearly") {
+          @if (!plan()) {
+            <strong>—</strong>
+            <span class="ac-stat-sub">{{ "superadmin.no_plan_yet" | translate }}</span>
+          } @else if (c.subscription?.billing_period === "yearly") {
             <strong>{{ (c.annual_subscription_cents / 100) | money: c.currency }} <span class="ac-stat-unit">{{ "superadmin.per_year" | translate }}</span></strong>
             <span class="ac-stat-sub">{{ (c.monthly_subscription_cents / 100) | money: c.currency }} {{ "superadmin.per_month" | translate }}</span>
           } @else {
@@ -216,18 +224,25 @@
                    instead of letting it read as a per-salle setting. -->
               <div>
                 <label for="ac-plan">{{ "superadmin.plan_label" | translate }}</label>
-                <select id="ac-plan" class="form-select" [value]="plan()" [disabled]="savingPlan()"
+                <select id="ac-plan" class="form-select" [value]="plan() ?? ''" [disabled]="savingPlan()"
                         (change)="changePlan($any($event.target).value)">
+                  @if (!plan()) {
+                    <option value="" disabled>{{ "superadmin.choose_plan" | translate }}</option>
+                  }
                   @for (key of planOptions; track key) {
                     <option [value]="key">{{ ("subscription.plan_" + key) | translate }} — {{ ("subscription.plan_" + key + "_for") | translate }}</option>
                   }
                 </select>
-                <p class="fx-muted ac-hint">
-                  {{ "superadmin.plan_hint" | translate: { gyms: adminGyms(), price: (c.monthly_subscription_cents / 100 | money: c.currency) } }}
-                </p>
+                @if (plan()) {
+                  <p class="fx-muted ac-hint">
+                    {{ "superadmin.plan_hint" | translate: { gyms: adminGyms(), price: (c.monthly_subscription_cents / 100 | money: c.currency) } }}
+                  </p>
+                } @else {
+                  <p class="fx-muted ac-hint">{{ "superadmin.no_plan_hint" | translate }}</p>
+                }
                 <p class="ac-hint ac-member-app" [class.is-on]="memberApp()">
                   <i class="bi" [class.bi-phone]="memberApp()" [class.bi-dash-circle]="!memberApp()"></i>
-                  {{ (memberApp() ? (onTrial() ? "superadmin.member_app_trial" : "superadmin.member_app_on") : "superadmin.member_app_off") | translate }}
+                  {{ (onTrial() ? "superadmin.member_app_trial" : memberApp() ? "superadmin.member_app_on" : "superadmin.member_app_off") | translate }}
                 </p>
               </div>
 
@@ -246,13 +261,20 @@
                 <div class="ac-next">
                   <div class="ac-next-main">
                     <span class="ac-stat-label">{{ "superadmin.next_invoice" | translate }}</span>
-                    <strong>{{ (next.amount_cents / 100) | money: c.currency }}</strong>
+                    @if (next.amount_cents !== null) {
+                      <strong>{{ (next.amount_cents / 100) | money: c.currency }}</strong>
+                    } @else {
+                      <strong>—</strong>
+                    }
                     <span class="fx-muted">{{ next.period_start | date: "d MMM y" }} → {{ next.period_end | date: "d MMM y" }}</span>
                     @if (onTrial()) {
                       <p class="fx-muted ac-hint mb-0">{{ "superadmin.next_invoice_after_trial" | translate }}</p>
                     }
                   </div>
-                  <button type="button" class="btn btn-primary btn-sm" [disabled]="savingInvoice() || savingSub()" (click)="issueInvoice()">
+                  @if (!plan()) {
+                    <p class="ac-hint mb-0">{{ "superadmin.choose_plan_first" | translate }}</p>
+                  }
+                  <button type="button" class="btn btn-primary btn-sm" [disabled]="savingInvoice() || savingSub() || !plan()" (click)="issueInvoice()">
                     {{ (savingInvoice() ? "common.saving" : "superadmin.record_payment") | translate }}
                   </button>
                 </div>

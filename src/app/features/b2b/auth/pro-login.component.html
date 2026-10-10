@@ -1,12 +1,18 @@
 <app-auth-pro-shell>
   <div authPanel class="auth-panel">
+    <span class="auth-panel-badge"><i aria-hidden="true"></i>{{ "auth.login_panel_badge" | translate }}</span>
     <p class="auth-panel-title">
       {{ "auth.login_panel_title_1" | translate }}
       <em>{{ "auth.login_panel_title_2" | translate }}</em>
     </p>
-    <div class="auth-panel-card">
-      <span class="auth-panel-kicker">{{ "auth.login_panel_kicker" | translate }}</span>
-      <ul class="auth-panel-list">
+    <div class="auth-today">
+      <div class="auth-today-head">
+        <div>
+          <span class="auth-panel-kicker">{{ "auth.login_panel_kicker" | translate }}</span>
+          <span class="auth-today-date">{{ todayLabel() }}</span>
+        </div>
+      </div>
+      <ul class="auth-today-list">
         <li><i class="bi bi-calendar3" aria-hidden="true"></i>{{ "auth.login_panel_item_planning" | translate }}</li>
         <li><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{{ "auth.login_panel_item_renewals" | translate }}</li>
         <li><i class="bi bi-cash-coin" aria-hidden="true"></i>{{ "auth.login_panel_item_payments" | translate }}</li>

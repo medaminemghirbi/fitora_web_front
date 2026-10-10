@@ -1,4 +1,5 @@
 import { Component, OnInit, computed, inject, signal } from "@angular/core";
+import { AuthService } from "../../../core/auth/auth.service";
 import { DatePipe, DecimalPipe } from "@angular/common";
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from "@angular/forms";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
@@ -98,6 +99,8 @@ function toDateInputValue(date: Date): string {
   styleUrl: "./client-profile.component.scss",
 })
 export class ClientProfileComponent implements OnInit {
+  /** Taking a member off the gym is the admin's alone (the API refuses anyone else). */
+  readonly isAdmin = inject(AuthService).isAdmin;
   readonly loading = signal(true);
   readonly error = signal(false);
   readonly saving = signal(false);

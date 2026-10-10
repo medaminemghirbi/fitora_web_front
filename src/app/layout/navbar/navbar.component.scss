@@ -326,3 +326,9 @@ a.app-company-switcher-locked:hover { text-decoration: underline; }
   object-fit: cover;
   flex-shrink: 0;
 }
+
+// Several salles are Pro's: a lock on the switcher itself on Starter / trial.
+.app-company-switcher-lock {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}

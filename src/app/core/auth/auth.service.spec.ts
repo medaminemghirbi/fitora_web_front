@@ -255,6 +255,7 @@ describe("AuthService", () => {
       localStorage.setItem("fitora_user_v2", JSON.stringify(admin));
       const auth = buildService();
       configStub.onboarding.and.returnValue({ complete: false, dismissed: true });
+      configStub.hasPermission.and.returnValue(true);
       expect(auth.homeRouteForCurrentUser()).toBe("/admin/dashboard");
     });
 
@@ -271,13 +272,25 @@ describe("AuthService", () => {
       localStorage.setItem("fitora_user_v2", JSON.stringify({ ...admin, role: "staff", staff_role: "moderator", email_verified: false }));
       const auth = buildService();
       expect(auth.emailConfirmationPending()).toBe(false);
+      configStub.hasPermission.and.callFake((key: string) => key === "reports");
       expect(auth.homeRouteForCurrentUser()).toBe("/admin/dashboard");
     });
 
-    it("defaults everyone else to the dashboard", () => {
+    it("defaults everyone who may read the dashboard to it", () => {
       localStorage.setItem("fitora_user_v2", JSON.stringify({ ...admin, role: "staff", staff_role: "moderator" }));
       const auth = buildService();
+      configStub.hasPermission.and.callFake((key: string) => key === "reports");
       expect(auth.homeRouteForCurrentUser()).toBe("/admin/dashboard");
+    });
+
+    // A custom role without "reports" (a "Comptable" with payments only)
+    // used to be sent to the dashboard, whose guard sent it "home" to the
+    // dashboard again: the sign-in went nowhere. The schedule is open to all.
+    it("lands a role without the dashboard permission on the schedule", () => {
+      localStorage.setItem("fitora_user_v2", JSON.stringify({ ...admin, role: "staff", staff_role: "comptable" }));
+      const auth = buildService();
+      configStub.hasPermission.and.callFake((key: string) => key === "payments");
+      expect(auth.homeRouteForCurrentUser()).toBe("/admin/calendar");
     });
 
     // The guards read isAuthenticated(); homeRouteForCurrentUser is only

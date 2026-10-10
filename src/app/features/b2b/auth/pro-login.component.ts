@@ -1,8 +1,9 @@
-import { Component, signal } from "@angular/core";
+import { Component, computed, inject, signal } from "@angular/core";
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
 import { Router, RouterLink } from "@angular/router";
 import { TranslateModule, TranslateService } from "@ngx-translate/core";
 import { AuthService } from "../../../core/auth/auth.service";
+import { LocaleService } from "../../../core/services/locale.service";
 import { extractErrorMessage } from "../../../core/services/error.util";
 import { AuthProShellComponent } from "../../../shared/ui/auth-pro-shell.component";
 import { SpinnerComponent } from "../../../shared/components/spinner.component";
@@ -24,6 +25,15 @@ export class ProLoginComponent {
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
   readonly showPassword = signal(false);
+
+  private readonly locale = inject(LocaleService);
+
+  /** Today, in the page's language, for the panel's day card. */
+  readonly todayLabel = computed(() => {
+    const code = this.locale.locale() === "ar" ? "ar-TN" : this.locale.locale();
+    const label = new Intl.DateTimeFormat(code, { weekday: "long", day: "numeric", month: "long" }).format(new Date());
+    return label.charAt(0).toLocaleUpperCase(code) + label.slice(1);
+  });
 
   readonly form = this.fb.nonNullable.group({
     email: ["", [Validators.required, Validators.email]],

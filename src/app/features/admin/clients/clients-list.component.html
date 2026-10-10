@@ -18,9 +18,11 @@
           [attr.aria-label]="'clients.search_placeholder' | translate"
         />
       </div>
-      <button type="button" class="btn btn-outline-secondary" (click)="exportCsv()">
-        <i class="bi bi-download"></i> {{ "common.export" | translate }}
-      </button>
+      @if (isAdmin()) {
+        <button type="button" class="btn btn-outline-secondary" (click)="exportCsv()">
+          <i class="bi bi-download"></i> {{ "common.export" | translate }}
+        </button>
+      }
       <button type="button" class="btn btn-primary" (click)="openCreate()">
         <i class="bi bi-plus-lg"></i> {{ "clients.new" | translate }}
       </button>

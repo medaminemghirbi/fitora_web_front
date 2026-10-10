@@ -21,11 +21,14 @@ export interface Subscription {
   id: string;
   active: boolean;
   billing_period: BillingPeriod | null;
-  plan: PlanKey;
-  /** Whether members can sign in to their app: Pro, or a free trial. */
+  /** null on the free trial: nothing is chosen until the first payment is set up. */
+  plan: PlanKey | null;
+  /** Whether members can sign in to their app: paid Pro only, locked on the trial. */
   member_app: boolean;
-  /** Whether the account may open another salle: Pro, or a free trial. */
+  /** Whether the account may open another salle: paid Pro only, locked on the trial. */
   multi_salle: boolean;
+  /** Pro's tools — several salles, custom roles, branding, CSV import / export: paid Pro only, locked on the trial. */
+  pro_features: boolean;
   lock_reason: LockReason;
   /** The last day covered by an invoice. null = never paid. */
   paid_through: string | null;
@@ -52,7 +55,8 @@ export interface Invoice {
   currency: string;
   billing_period: BillingPeriod;
   /** The plan this period was bought on, frozen at issue. */
-  plan: PlanKey;
+  /** The plan this period was bought on; null on the trial's free period. */
+  plan: PlanKey | null;
   /** The free period signup gave away. */
   trial: boolean;
   issued_at: string;

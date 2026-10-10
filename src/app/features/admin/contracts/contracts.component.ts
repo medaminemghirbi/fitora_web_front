@@ -6,7 +6,7 @@ import { TranslateModule, TranslateService } from "@ngx-translate/core";
 import { Contract, ContractStatus } from "../../../core/models/contract.model";
 import { ContractType, sellableItems, sellableTarget } from "../../../core/models/contract-type.model";
 import { ContractTypesService } from "../../../core/services/contract-types.service";
-import { ContractsService, RenewContractPayload } from "../../../core/services/contracts.service";
+import { ContractListResponse, ContractsService, RenewContractPayload } from "../../../core/services/contracts.service";
 import { PaymentsService } from "../../../core/services/payments.service";
 import { ToastService } from "../../../core/services/toast.service";
 import { ConfirmService } from "../../../core/services/confirm.service";
@@ -85,7 +85,8 @@ export class ContractsComponent implements OnInit {
   /** Rail counts, per-plan tab counts and the portfolio strip — all from the API. */
   readonly counts = signal<Record<string, number>>({});
   readonly planCounts = signal<Record<string, number>>({});
-  readonly totals = signal({ portfolio_value: 0, average_basket: 0, unpaid_value: 0, expiring_soon: 0 });
+  /** The money figures are absent for a login without `revenue`. */
+  readonly totals = signal<ContractListResponse["totals"]>({ expiring_soon: 0 });
   readonly currency = computed(() => this.branding.branding()?.currency ?? "TND");
 
   readonly railOptions = computed<StatusFilterOption[]>(() =>

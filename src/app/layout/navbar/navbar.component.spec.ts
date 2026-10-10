@@ -1,6 +1,6 @@
 import { provideHttpClient } from "@angular/common/http";
 import { provideHttpClientTesting } from "@angular/common/http/testing";
-import { Component, signal } from "@angular/core";
+import { Component, signal, computed } from "@angular/core";
 import { ComponentFixture, TestBed, fakeAsync, tick } from "@angular/core/testing";
 import { Router, provideRouter } from "@angular/router";
 import { TranslateModule } from "@ngx-translate/core";
@@ -19,7 +19,7 @@ describe("NavbarComponent", () => {
   let component: NavbarComponent;
   let authStub: { currentUser: jasmine.Spy; logout: jasmine.Spy };
   let companyServiceStub: { switchTo: jasmine.Spy };
-  const subscription = signal<{ multi_salle: boolean } | null>(null);
+  const subscription = signal<{ multi_salle: boolean; pro_features?: boolean } | null>(null);
 
   const dashboardItem: NavLeaf = { path: "/admin/dashboard", icon: "bi-house", labelKey: "nav.dashboard" };
   const groups: NavGroup[] = [
@@ -47,7 +47,7 @@ describe("NavbarComponent", () => {
         provideHttpClientTesting(),
         { provide: AuthService, useValue: authStub },
         { provide: CompanyService, useValue: companyServiceStub },
-        { provide: ConfigurationService, useValue: { subscription } },
+        { provide: ConfigurationService, useValue: { subscription, proFeatures: computed(() => subscription()?.pro_features ?? true) } },
       ],
     }).compileComponents();
 
@@ -261,7 +261,7 @@ describe("NavbarComponent", () => {
 
     describe("on the plan", () => {
       it("switches between several salles on Pro (or the trial)", () => {
-        subscription.set({ multi_salle: true });
+        subscription.set({ multi_salle: true, pro_features: true });
         const admin = freshWith({ role: "admin", companies });
 
         expect(admin.canSwitch()).toBe(true);
@@ -273,7 +273,7 @@ describe("NavbarComponent", () => {
       });
 
       it("lists every salle on Starter but does not switch to another", () => {
-        subscription.set({ multi_salle: false });
+        subscription.set({ multi_salle: false, pro_features: false });
         const admin = freshWith({ role: "admin", companies });
 
         expect(admin.switchableCompanies()).toEqual(companies);
@@ -284,16 +284,33 @@ describe("NavbarComponent", () => {
         expect(companyServiceStub.switchTo).not.toHaveBeenCalled();
       });
 
-      it("has nothing to lock with a single salle", () => {
-        subscription.set({ multi_salle: false });
+      it("locks the menu on Starter even with a single salle: several salles are Pro's", () => {
+        subscription.set({ multi_salle: false, pro_features: false });
         const admin = freshWith({ role: "admin", companies: [companies[0]] });
 
         expect(admin.canSwitch()).toBe(false);
-        expect(admin.switchLocked()).toBe(false);
+        expect(admin.switchLocked()).toBe(true);
+      });
+
+      it("hides \"Gérer mes salles\" on Starter and keeps it on Pro", () => {
+        authStub.currentUser.and.returnValue({ role: "admin", companies: [companies[0]] });
+        const open = () => {
+          const f = TestBed.createComponent(NavbarComponent);
+          f.detectChanges();
+          f.componentInstance.companySwitcherOpen.set(true);
+          f.detectChanges();
+          return f.nativeElement as HTMLElement;
+        };
+
+        subscription.set({ multi_salle: false, pro_features: false });
+        expect(open().querySelector(".app-company-switcher-manage")).toBeNull();
+
+        subscription.set({ multi_salle: true, pro_features: true });
+        expect(open().querySelector(".app-company-switcher-manage")).not.toBeNull();
       });
 
       it("renders the other salles disabled with the way to Pro on Starter", () => {
-        subscription.set({ multi_salle: false });
+        subscription.set({ multi_salle: false, pro_features: false });
         authStub.currentUser.and.returnValue({ role: "admin", companies });
         const fresh = TestBed.createComponent(NavbarComponent);
         fresh.detectChanges();

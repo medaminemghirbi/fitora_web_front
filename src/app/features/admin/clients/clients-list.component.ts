@@ -1,4 +1,5 @@
-import { Component, OnInit, computed, signal } from "@angular/core";
+import { Component, OnInit, computed, inject, signal } from "@angular/core";
+import { AuthService } from "../../../core/auth/auth.service";
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
 import { FormsModule } from "@angular/forms";
 import { ActivatedRoute, Router, RouterLink } from "@angular/router";
@@ -54,6 +55,8 @@ import { MoneyPipe } from "../../../shared/pipes/money.pipe";
   templateUrl: "./clients-list.component.html",
 })
 export class ClientsListComponent implements OnInit {
+  /** The whole member file as CSV is the admin's alone (the API refuses anyone else). */
+  readonly isAdmin = inject(AuthService).isAdmin;
   readonly loading = signal(true);
   readonly error = signal(false);
   readonly saving = signal(false);

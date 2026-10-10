@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, signal } from "@angular/core";
+import { Component, OnInit, computed, inject, signal } from "@angular/core";
 import { DatePipe } from "@angular/common";
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from "@angular/forms";
 import { ActivatedRoute, RouterLink } from "@angular/router";
@@ -6,7 +6,8 @@ import { TranslateModule, TranslateService } from "@ngx-translate/core";
 import { Client, ClientDetail } from "../../../core/models/client.model";
 import { Payment } from "../../../core/models/payment.model";
 import { ClientsService } from "../../../core/services/clients.service";
-import { PaymentsService } from "../../../core/services/payments.service";
+import { PaymentListResponse, PaymentsService } from "../../../core/services/payments.service";
+import { AuthService } from "../../../core/auth/auth.service";
 import { PageMeta } from "../../../core/services/sessions.service";
 import { ToastService } from "../../../core/services/toast.service";
 import { ConfirmService } from "../../../core/services/confirm.service";
@@ -84,13 +85,10 @@ export class AdminPaymentsComponent implements OnInit {
   readonly currency = computed(() => this.branding.branding()?.currency ?? "TND");
   readonly methodCounts = signal<Record<string, number>>({});
   readonly methodFilter = signal<string>("");
-  readonly totals = signal({
-    collected_this_month: 0,
-    collected_total: 0,
-    refunded_value: 0,
-    cancelled_value: 0,
-    average_payment: 0,
-  });
+  /** null for a login without `revenue`: the API leaves the strip out. */
+  readonly totals = signal<PaymentListResponse["totals"] | null>(null);
+  /** Refunds are the admin's alone (the API refuses anyone else). */
+  readonly isAdmin = inject(AuthService).isAdmin;
 
   readonly railOptions = computed<StatusFilterOption[]>(() =>
     this.statusOptions.map((opt) => ({
@@ -196,7 +194,7 @@ export class AdminPaymentsComponent implements OnInit {
         this.meta.set(res.meta);
         this.counts.set(res.counts ?? {});
         this.methodCounts.set(res.method_counts ?? {});
-        if (res.totals) this.totals.set(res.totals);
+        this.totals.set(res.totals ?? null);
         this.loading.set(false);
       },
       error: () => {

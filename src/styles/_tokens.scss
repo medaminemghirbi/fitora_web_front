@@ -23,6 +23,14 @@
   --color-accent: #e8005f;
   --color-accent-soft: #ffe1ec;
 
+  // ---- Lime — the marketing highlight (landing + account screens): CTA
+  //      fills, ticks, the highlighted word. Always with --color-on-lime
+  //      text, never as text on white. Same in both themes. --------------
+  --color-lime: #c6f432;
+  --color-lime-soft: #f2fccd;
+  --color-on-lime: #1d1533;
+  --color-night: #170b2e;
+
   // ---- Signature gradient — violet → raspberry → sunglow. Hero, primary
   //      marketing CTA, brand mark. Never as a text/background pair. ------
   --brand-gradient: linear-gradient(112deg, #6946aa 0%, #e8005f 54%, #ffbc00 108%);

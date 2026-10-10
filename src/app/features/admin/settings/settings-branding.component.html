@@ -1,5 +1,5 @@
 <div class="row g-3">
-  <div class="col-12 col-lg-8">
+  <div class="col-12" [class.col-lg-8]="showBrand && proFeatures()">
     <div class="app-card">
       <div class="app-card-body">
         @if (loading()) {
@@ -12,6 +12,11 @@
           }
 
           <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+            @if (!showBrand) {
+              <!-- Contracts only: the brand half is its own tab. -->
+            } @else if (!proFeatures()) {
+              <app-pro-lock feature="branding" [compact]="true" />
+            } @else {
             <div class="mb-4">
               <label for="br-logo">{{ "settings.branding_logo" | translate }}</label>
               <div class="d-flex align-items-center gap-3">
@@ -43,11 +48,15 @@
               <input id="br-slug" class="form-control" formControlName="slug" dir="ltr" placeholder="power-gym" />
               <div class="form-text">{{ "settings.branding_slug_hint" | translate }}</div>
             </div>
+            }
 
             <!-- What every contract PDF is signed with. Set once here, it is
                  printed on each member's contract (Contrat PDF). -->
-            <section class="branding-docs">
-              <h2 class="branding-docs-title">{{ "settings.contracts_title" | translate }}</h2>
+            @if (showContracts) {
+            <section class="branding-docs" [class.is-alone]="part === 'contracts'">
+              @if (part !== "contracts") {
+                <h2 class="branding-docs-title">{{ "settings.contracts_title" | translate }}</h2>
+              }
               <p class="text-muted-token small">{{ "settings.contracts_hint" | translate }}</p>
 
               <div class="mb-4">
@@ -121,6 +130,7 @@
                 <div class="form-text">{{ "settings.contract_terms_hint" | translate }}</div>
               </div>
             </section>
+            }
 
             <button type="submit" class="btn btn-primary" [disabled]="saving()">
               {{ (saving() ? "common.saving" : "common.save") | translate }}
@@ -131,6 +141,7 @@
     </div>
   </div>
 
+  @if (showBrand && proFeatures()) {
   <div class="col-12 col-lg-4">
     <div class="app-card">
       <div class="app-card-header">
@@ -151,4 +162,5 @@
       </div>
     </div>
   </div>
+  }
 </div>

@@ -1,4 +1,5 @@
-import { Component, computed, signal } from "@angular/core";
+import { Component, computed, inject, signal } from "@angular/core";
+import { AuthService } from "../../../core/auth/auth.service";
 import { FormsModule } from "@angular/forms";
 import { TranslateModule, TranslateService } from "@ngx-translate/core";
 import { DataExchangeEntity, DataExchangeService, ImportResult } from "../../../core/services/data-exchange.service";
@@ -34,6 +35,8 @@ const PREVIEW_ROW_LIMIT = 20;
   styleUrl: "./data-exchange.component.scss",
 })
 export class DataExchangeComponent {
+  /** Bulk export is the admin's alone; importing follows the entity's permission. */
+  readonly isAdmin = inject(AuthService).isAdmin;
   readonly entities = ENTITIES;
 
   readonly selectedEntity = signal<DataExchangeEntity>("clients");

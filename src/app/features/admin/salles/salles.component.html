@@ -1,6 +1,8 @@
 <div class="fx-stack">
   <app-page-header [title]="'salles.title' | translate" [description]="'salles.subtitle' | translate">
-    @if (multiSalle()) {
+    @if (!proFeatures()) {
+      <!-- Locked below: nothing to open here on Starter. -->
+    } @else if (multiSalle()) {
       <button type="button" class="btn btn-primary" (click)="openCreate()">
         <i class="bi bi-plus-lg"></i> {{ "salles.new" | translate }}
       </button>
@@ -12,6 +14,9 @@
     }
   </app-page-header>
 
+  @if (!proFeatures()) {
+    <app-pro-lock feature="salles" />
+  } @else {
   <!-- One account, one plan: said once here so no card reads as a salle
        with a price of its own. -->
   <p class="sl-plan-note">
@@ -99,6 +104,7 @@
       }
     </div>
   }
+  }
 </div>
 
 <!-- Who works at one salle, among every moderator the admin has. -->
@@ -163,7 +169,11 @@
   @if (createError()) {
     <div class="alert alert-danger">{{ createError() }}</div>
   }
-  <p class="fx-muted">{{ "salles.new_plan_hint" | translate: { plan: ("subscription.plan_" + planKey()) | translate } }}</p>
+  @if (planKey(); as key) {
+    <p class="fx-muted">{{ "salles.new_plan_hint" | translate: { plan: ("subscription.plan_" + key) | translate } }}</p>
+  } @else {
+    <p class="fx-muted">{{ "salles.new_plan_hint_trial" | translate }}</p>
+  }
 
   <form [formGroup]="form" (ngSubmit)="submitCreate()" novalidate>
     <div class="mb-3">

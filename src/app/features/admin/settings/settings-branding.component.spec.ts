@@ -1,4 +1,7 @@
+import { signal } from "@angular/core";
 import { ComponentFixture, TestBed } from "@angular/core/testing";
+import { provideRouter } from "@angular/router";
+import { ConfigurationService } from "../../../core/configuration/configuration.service";
 import { TranslateModule } from "@ngx-translate/core";
 import { of, throwError } from "rxjs";
 import { API_ORIGIN } from "../../../core/models/api-config";
@@ -14,10 +17,12 @@ describe("SettingsBrandingComponent", () => {
   let companyService: jasmine.SpyObj<CompanyService>;
   let brandingService: jasmine.SpyObj<BrandingService>;
   let toast: ToastService;
+  const proFeatures = signal(true);
 
   const company = { slug: "acme", primary_color: "#ff0000", logo_url: "/logos/acme.png" } as Company;
 
   beforeEach(async () => {
+    proFeatures.set(true);
     companyService = jasmine.createSpyObj<CompanyService>("CompanyService", ["get", "updateBranding"]);
     brandingService = jasmine.createSpyObj<BrandingService>("BrandingService", ["load"]);
     companyService.get.and.returnValue(of({ company }));
@@ -27,6 +32,8 @@ describe("SettingsBrandingComponent", () => {
       providers: [
         { provide: CompanyService, useValue: companyService },
         { provide: BrandingService, useValue: brandingService },
+        { provide: ConfigurationService, useValue: { proFeatures } },
+        provideRouter([]),
       ],
     }).compileComponents();
 
@@ -34,6 +41,17 @@ describe("SettingsBrandingComponent", () => {
     component = fixture.componentInstance;
     toast = TestBed.inject(ToastService);
     fixture.detectChanges();
+  });
+
+  it("locks the logo, colour and identifier on Starter, and keeps the contract part", () => {
+    proFeatures.set(false);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelector("app-pro-lock")).not.toBeNull();
+    expect(el.querySelector("#br-logo")).toBeNull();
+    expect(el.querySelector("#br-color")).toBeNull();
+    expect(el.querySelector(".branding-docs")).not.toBeNull();
   });
 
   it("loads the company's branding on init", () => {

@@ -1,6 +1,6 @@
 import { WritableSignal, signal } from "@angular/core";
 import { ComponentFixture, TestBed } from "@angular/core/testing";
-import { provideRouter } from "@angular/router";
+import { Router, provideRouter } from "@angular/router";
 import { TranslateModule } from "@ngx-translate/core";
 import { Locale, LocaleService } from "../../core/services/locale.service";
 import { LandingComponent } from "./landing.component";
@@ -38,11 +38,8 @@ describe("LandingComponent", () => {
     expect(component.langMenuOpen()).toBe(false);
   });
 
-  it("numbers the six features 01 to 06", () => {
-    const numbers = Array.from(fixture.nativeElement.querySelectorAll(".lp-feature-n") as NodeListOf<HTMLElement>).map((n) =>
-      n.textContent?.trim()
-    );
-    expect(numbers).toEqual(["01", "02", "03", "04", "05", "06"]);
+  it("shows the six features", () => {
+    expect(fixture.nativeElement.querySelectorAll(".lp-feature").length).toBe(6);
   });
 
   it("anchors every nav link to a section that exists", () => {
@@ -87,6 +84,53 @@ describe("LandingComponent", () => {
     it("toggleFaq closes the currently open question when clicked again", () => {
       component.toggleFaq(1);
       expect(component.openFaq()).toBeNull();
+    });
+  });
+
+  describe("pricing", () => {
+    const digits = (s: string) => s.replace(/[^0-9,.]/g, "");
+
+    it("shows each plan's monthly price by default", () => {
+      expect(component.plans.map((p) => digits(component.priceOf(p)))).toEqual(["165", "249"]);
+    });
+
+    it("switches to the year's total after the annual discount", () => {
+      component.billing.set("yearly");
+      // 165 × 12 × 0.9 = 1 782 ; 249 × 12 × 0.9 = 2 689,20
+      expect(component.plans.map((p) => digits(component.priceOf(p)))).toEqual(["1782", "2689,20"]);
+    });
+  });
+
+  describe("the booking mock", () => {
+    it("offers the next three days", () => {
+      expect(component.bookingDays().length).toBe(3);
+    });
+
+    it("picks a free slot but refuses a taken one", () => {
+      component.pickDay(0);
+      component.pickSlot("07:30");
+      expect(component.selectedSlot()).toBe("07:30");
+
+      component.pickSlot("12:30"); // taken on the first day
+      expect(component.isTaken("12:30")).toBeTrue();
+      expect(component.selectedSlot()).toBe("07:30");
+    });
+  });
+
+  describe("the closing form", () => {
+    it("hands the first name and e-mail over to /inscription", () => {
+      const router = TestBed.inject(Router);
+      const navigate = spyOn(router, "navigate").and.resolveTo(true);
+      component.startForm.setValue({ first_name: " Sarah ", email: "sarah@studio.tn" });
+      component.start();
+      expect(navigate).toHaveBeenCalledWith(["/inscription"], { queryParams: { first_name: "Sarah", email: "sarah@studio.tn" } });
+    });
+
+    it("does not leave with an invalid e-mail", () => {
+      const navigate = spyOn(TestBed.inject(Router), "navigate");
+      component.startForm.setValue({ first_name: "", email: "not-an-email" });
+      component.start();
+      expect(navigate).not.toHaveBeenCalled();
     });
   });
 });

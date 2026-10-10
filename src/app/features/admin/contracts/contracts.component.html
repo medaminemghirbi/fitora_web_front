@@ -32,18 +32,21 @@
 
     <div class="fx-stats-bar">
       <dl class="fx-stats">
-        <div>
-          <dt>{{ "contracts.portfolio_value" | translate }}</dt>
-          <dd>{{ totals().portfolio_value | money: currency() }}</dd>
-        </div>
-        <div>
-          <dt>{{ "contracts.average_basket" | translate }}</dt>
-          <dd>{{ totals().average_basket | money: currency() }}</dd>
-        </div>
-        <div>
-          <dt>{{ "contracts.unpaid_value" | translate }}</dt>
-          <dd>{{ totals().unpaid_value | money: currency() }}</dd>
-        </div>
+        <!-- Only for a login holding `revenue`; everyone sees what expires. -->
+        @if (totals().portfolio_value !== undefined) {
+          <div>
+            <dt>{{ "contracts.portfolio_value" | translate }}</dt>
+            <dd>{{ totals().portfolio_value | money: currency() }}</dd>
+          </div>
+          <div>
+            <dt>{{ "contracts.average_basket" | translate }}</dt>
+            <dd>{{ totals().average_basket | money: currency() }}</dd>
+          </div>
+          <div>
+            <dt>{{ "contracts.unpaid_value" | translate }}</dt>
+            <dd>{{ totals().unpaid_value | money: currency() }}</dd>
+          </div>
+        }
         <div>
           <dt>{{ "contracts.expiring_soon" | translate }}</dt>
           <dd class="text-warning-token">{{ totals().expiring_soon }}</dd>

@@ -168,12 +168,37 @@
           <strong>{{ practitionerRole() }}</strong>
           <span>{{ "team.create_type_coach_hint" | translate }}</span>
         </button>
-        <button type="button" class="team-kind-opt" [class.is-active]="createKind() === 'backoffice'" (click)="createKind.set('backoffice')">
-          <i class="bi bi-window-desktop"></i>
+        <button type="button" class="team-kind-opt" [class.is-active]="createKind() === 'backoffice'"
+                [disabled]="!backofficeAvailable()" [attr.aria-describedby]="backofficeAvailable() ? null : 'team-seat-notice'"
+                (click)="createKind.set('backoffice')">
+          <i class="bi" [class.bi-window-desktop]="backofficeAvailable()" [class.bi-lock]="!backofficeAvailable()"></i>
           <strong>{{ "team.create_type_backoffice" | translate }}</strong>
-          <span>{{ "team.create_type_backoffice_hint" | translate }}</span>
+          <span>{{ (backofficeAvailable() ? "team.create_type_backoffice_hint" : "team.create_type_backoffice_taken") | translate }}</span>
         </button>
       </div>
+
+      <!-- The moderator role is held and no other back-office role exists:
+           say why the card is locked and offer both ways out right here. -->
+      @if (!backofficeAvailable()) {
+        <div class="team-seat-notice" id="team-seat-notice" role="status">
+          <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
+          <div class="team-seat-notice-text">
+            <strong>{{ "team.backoffice_taken_title" | translate }}</strong>
+            <p>{{ "team.backoffice_taken_body" | translate: { name: moderator()?.name ?? "" } }}</p>
+            <div class="team-seat-notice-actions">
+              <a routerLink="/admin/settings/roles" class="btn btn-sm btn-primary">
+                <i class="bi bi-shield-plus" aria-hidden="true"></i> {{ "team.backoffice_taken_create_role" | translate }}
+              </a>
+              @if (moderator(); as m) {
+                <button type="button" class="btn btn-sm btn-outline-danger" (click)="freeBackofficeSeat(m)">
+                  <i class="bi bi-person-dash" aria-hidden="true"></i>
+                  {{ "team.backoffice_taken_action" | translate: { name: m.name } }}
+                </button>
+              }
+            </div>
+          </div>
+        </div>
+      }
     </div>
   }
 
@@ -267,9 +292,20 @@
           <label for="tb-role">{{ "staff.role" | translate }} *</label>
           <select id="tb-role" class="form-select" formControlName="role_id">
             @for (r of backofficeRoles(); track r.id) {
-              <option [value]="r.id">{{ r.name }}</option>
+              <option [value]="r.id" [disabled]="isRoleTaken(r)">
+                {{ r.name }}{{ isRoleTaken(r) ? " — " + ("team.role_taken_suffix" | translate) : "" }}
+              </option>
             }
           </select>
+          @if (roleAccessSummary(backofficeForm.controls.role_id.value); as summary) {
+            <div class="form-text">{{ "team.role_access_preview" | translate: { access: summary } }}</div>
+          }
+          @if (moderator(); as m) {
+            <div class="form-text">{{ "team.role_moderator_taken_hint" | translate: { name: m.name } }}</div>
+          }
+          <a routerLink="/admin/settings/roles" class="team-role-link">
+            <i class="bi bi-shield-plus" aria-hidden="true"></i> {{ "team.role_manage_link" | translate }}
+          </a>
         </div>
       </div>
     </form>
@@ -336,7 +372,9 @@
         <label for="er-role">{{ "staff.role" | translate }} *</label>
         <select id="er-role" class="form-select" formControlName="role_id">
           @for (r of backofficeRoles(); track r.id) {
-            <option [value]="r.id">{{ r.name }}</option>
+            <option [value]="r.id" [disabled]="isRoleTaken(r, s)">
+              {{ r.name }}{{ isRoleTaken(r, s) ? " — " + ("team.role_taken_suffix" | translate) : "" }}
+            </option>
           }
         </select>
       </div>

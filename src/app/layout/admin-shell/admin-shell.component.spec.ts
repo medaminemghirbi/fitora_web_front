@@ -37,9 +37,10 @@ describe("AdminShellComponent", () => {
       hasPermission: jasmine.createSpy().and.returnValue(true),
       hasFeature: jasmine.createSpy().and.returnValue(false),
     };
-    configStub = jasmine.createSpyObj<ConfigurationService>("ConfigurationService", ["ready", "subscription"]);
+    configStub = jasmine.createSpyObj<ConfigurationService>("ConfigurationService", ["ready", "subscription", "proFeatures"]);
     configStub.ready.and.returnValue(ready);
     configStub.subscription.and.returnValue(null);
+    configStub.proFeatures.and.returnValue(true);
     recoveryStub = jasmine.createSpyObj<AccountRecoveryService>("AccountRecoveryService", ["resendVerification"]);
 
     TestBed.configureTestingModule({
@@ -155,7 +156,7 @@ describe("AdminShellComponent", () => {
         trial_days_left: null,
         plan: "starter",
         member_app: false,
-        multi_salle: false,
+        multi_salle: false, pro_features: false,
         ...patch,
       });
       fixture = TestBed.createComponent(AdminShellComponent);

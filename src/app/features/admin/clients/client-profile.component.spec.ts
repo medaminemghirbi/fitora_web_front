@@ -1,4 +1,5 @@
 import { signal } from "@angular/core";
+import { AuthService } from "../../../core/auth/auth.service";
 import { ComponentFixture, TestBed } from "@angular/core/testing";
 import { ActivatedRoute, Router, convertToParamMap } from "@angular/router";
 import { TranslateModule } from "@ngx-translate/core";
@@ -123,6 +124,7 @@ describe("ClientProfileComponent", () => {
         { provide: PaymentsService, useValue: paymentsService },
         { provide: AttendanceService, useValue: attendanceService },
         { provide: ConfigurationService, useValue: { memberApp, features } },
+        { provide: AuthService, useValue: { isAdmin: signal(true) } },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: "cl1" }) } } },
       ],
     }).compileComponents();

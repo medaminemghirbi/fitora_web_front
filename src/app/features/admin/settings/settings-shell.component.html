@@ -1,32 +1,88 @@
 <div class="settings">
   <header class="settings-head">
-    <h1>{{ "settings.title" | translate }}</h1>
-    <p>{{ "settings.hub_subtitle" | translate }}</p>
+    <div>
+      <h1>{{ "settings.title" | translate }}</h1>
+      <p>{{ "settings.hub_subtitle" | translate }}</p>
+    </div>
+    @if (isAdmin) {
+      <a routerLink="/admin/onboarding" class="settings-start">
+        <i class="bi bi-compass" aria-hidden="true"></i>
+        {{ "onboarding.card_title" | translate }}
+      </a>
+    }
   </header>
 
-  <!-- Every section on one row. The left rail said the same thing in a
-       column and cost the page 240px to do it; with seven sections they all
-       fit, so nothing is hidden behind a menu. -->
-  <nav class="settings-tabs" [attr.aria-label]="'settings.title' | translate">
-    @for (s of flatSections(); track s.path) {
-      <a
-        [routerLink]="['/admin/settings', s.path]"
-        class="settings-tab"
-        [class.is-active]="activeSection()?.path === s.path"
-        [attr.aria-current]="activeSection()?.path === s.path ? 'page' : null"
-      >
-        <i class="bi" [class]="s.icon"></i>
-        <span>{{ s.labelKey | translate }}</span>
-      </a>
+  <!-- Direction C (2026-10-10): the everyday sections on one row, and the
+       Pro tools behind one "Outils Pro" menu — locked on Starter and the
+       trial, so the upsell sits in one place instead of a badge per tab. -->
+  <div class="settings-bar">
+    <nav class="settings-tabs" [attr.aria-label]="'settings.title' | translate">
+      @for (s of coreSections(); track s.path) {
+        <a
+          [routerLink]="['/admin/settings', s.path]"
+          class="settings-tab"
+          [class.is-active]="activeSection()?.path === s.path"
+          [attr.aria-current]="activeSection()?.path === s.path ? 'page' : null"
+        >
+          <i class="bi" [class]="s.icon"></i>
+          <span>{{ s.labelKey | translate }}</span>
+        </a>
+      }
+    </nav>
+
+    @if (proSections().length) {
+      <div class="settings-pro">
+        <button
+          type="button"
+          class="settings-pro-btn"
+          [class.is-active]="activeIsPro()"
+          [attr.aria-expanded]="proMenuOpen()"
+          aria-haspopup="menu"
+          (click)="toggleProMenu($event)"
+        >
+          @if (!proFeatures()) {
+            <i class="bi bi-lock-fill" aria-hidden="true"></i>
+          }
+          {{ "settings.pro_tools" | translate }}
+          <span class="settings-pro-count">{{ proSections().length }}</span>
+          <i class="bi bi-chevron-down settings-pro-caret" aria-hidden="true"></i>
+        </button>
+
+        @if (proMenuOpen()) {
+          <div class="settings-pro-menu" role="menu">
+            <span class="settings-pro-head">
+              {{ (proFeatures() ? "settings.pro_tools_yours" : "settings.pro_tools_locked") | translate }}
+            </span>
+            @for (s of proSections(); track s.path) {
+              <a
+                role="menuitem"
+                [routerLink]="['/admin/settings', s.path]"
+                class="settings-pro-item"
+                [class.is-active]="activeSection()?.path === s.path"
+                (click)="proMenuOpen.set(false)"
+              >
+                <span class="settings-pro-ic"><i class="bi" [class]="s.icon" aria-hidden="true"></i></span>
+                <span>
+                  <b>
+                    {{ s.labelKey | translate }}
+                    @if (!proFeatures()) {
+                      <i class="bi bi-lock-fill settings-pro-lock" [attr.aria-label]="'settings.pro_tools_locked' | translate"></i>
+                    }
+                  </b>
+                  <small>{{ s.shortKey! | translate }}</small>
+                </span>
+              </a>
+            }
+            @if (!proFeatures()) {
+              <a routerLink="/admin/subscription" class="settings-pro-cta" (click)="proMenuOpen.set(false)">
+                <i class="bi bi-stars" aria-hidden="true"></i> {{ "pro_lock.cta" | translate }}
+              </a>
+            }
+          </div>
+        }
+      </div>
     }
-    @if (isAdmin) {
-      <a routerLink="/admin/onboarding" class="settings-tab settings-tab--out">
-        <i class="bi bi-compass"></i>
-        <span>{{ "onboarding.card_title" | translate }}</span>
-        <i class="bi bi-box-arrow-up-right"></i>
-      </a>
-    }
-  </nav>
+  </div>
 
   <!-- Below the tabs' breakpoint the row becomes a picker rather than
        wrapping into four lines of pills. -->
@@ -39,7 +95,7 @@
       <optgroup [label]="g.labelKey | translate">
         @for (s of g.sections; track s.path) {
           <option [value]="s.path" [selected]="activeSection()?.path === s.path">
-            {{ s.labelKey | translate }}
+            {{ s.labelKey | translate }}{{ s.pro && !proFeatures() ? " · Pro" : "" }}
           </option>
         }
       </optgroup>
@@ -55,11 +111,21 @@
 
       @switch (sec.path) {
         @case ("company") { <app-settings-company /> }
-        @case ("branding") { <app-settings-branding /> }
+        @case ("branding") {
+          @if (proFeatures()) { <app-settings-branding part="brand" /> } @else { <app-pro-lock feature="branding" /> }
+        }
+        @case ("contracts") { <app-settings-branding part="contracts" /> }
         @case ("planning") { <app-settings-planning /> }
         @case ("booking") { <app-settings-booking /> }
-        @case ("roles") { <app-settings-roles /> }
-        @case ("data-exchange") { <app-data-exchange /> }
+        @case ("roles") {
+          @if (proFeatures()) { <app-settings-roles /> } @else { <app-pro-lock feature="roles" /> }
+        }
+        @case ("mobile-app") {
+          @if (proFeatures()) { <app-settings-mobile-app /> } @else { <app-pro-lock feature="mobile_app" /> }
+        }
+        @case ("data-exchange") {
+          @if (proFeatures()) { <app-data-exchange /> } @else { <app-pro-lock feature="data_exchange" /> }
+        }
         @case ("appearance") { <app-settings-appearance /> }
         @case ("account") { <app-change-password /> }
       }

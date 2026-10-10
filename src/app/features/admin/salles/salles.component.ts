@@ -13,6 +13,7 @@ import { ErrorStateComponent } from "../../../shared/ui/error-state.component";
 import { ModalComponent } from "../../../shared/components/modal.component";
 import { AvatarComponent } from "../../../shared/components/avatar.component";
 import { EmptyStateComponent } from "../../../shared/components/empty-state.component";
+import { ProLockComponent } from "../../../shared/ui/pro-lock.component";
 
 /**
  * "Mes salles": every salle the admin runs, on one account and one plan.
@@ -36,6 +37,7 @@ import { EmptyStateComponent } from "../../../shared/components/empty-state.comp
     ModalComponent,
     AvatarComponent,
     EmptyStateComponent,
+    ProLockComponent,
   ],
   templateUrl: "./salles.component.html",
   styleUrl: "./salles.component.scss",
@@ -56,10 +58,10 @@ export class SallesComponent {
   private readonly moderatorsById = computed(() => new Map(this.moderators().map((m) => [m.id, m])));
   private readonly sallesById = computed(() => new Map(this.salles().map((s) => [s.id, s])));
 
-  /** The account's plan, for the line that says one plan covers them all. */
-  readonly planKey = computed(() => this.config.subscription()?.plan ?? "starter");
+  /** The account's plan, for the line that says one plan covers them all. null on the trial. */
+  readonly planKey = computed(() => this.config.subscription()?.plan ?? null);
   /**
-   * Whether the account may open another salle: Pro, or the trial. True
+   * Whether the account may open another salle: paid Pro only. True
    * until known, so the button is never locked on a guess — the backend
    * refuses anyway.
    */
@@ -69,8 +71,15 @@ export class SallesComponent {
     return this.multiSalle() ? "salles.plan_note" : "salles.plan_note_starter";
   });
 
+  /**
+   * "Mes salles" — several salles, their moderators, moving between them —
+   * is a Pro tool (paid Pro only). Starter and the trial see the page locked, and
+   * the backend refuses the network call anyway.
+   */
+  readonly proFeatures = this.config.proFeatures;
+
   constructor() {
-    this.load();
+    if (this.proFeatures()) this.load();
   }
 
   load(): void {
@@ -137,10 +146,21 @@ export class SallesComponent {
     this.assigning.set(null);
   }
 
+  /**
+   * Any number of back-office logins per salle, but one on the moderator
+   * role: ticking a second moderator replaces the one picked.
+   */
   toggle(id: string): void {
     const next = new Set(this.picked());
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      const byId = this.moderatorsById();
+      if (byId.get(id)?.role_key === "moderator") {
+        next.forEach((other) => byId.get(other)?.role_key === "moderator" && next.delete(other));
+      }
+      next.add(id);
+    }
     this.picked.set(next);
   }
 

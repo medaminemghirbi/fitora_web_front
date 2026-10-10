@@ -7,6 +7,7 @@ import { ConfigurationService } from "../configuration/configuration.service";
 import { API_BASE_URL } from "../models/api-config";
 import { Client } from "../models/client.model";
 import { User } from "../models/user.model";
+import { activeCompany } from "./active-company";
 
 const TOKEN_KEY = "fitora_token";
 // Versioned: before v2 a cached user carried the previous role names, in
@@ -103,6 +104,10 @@ export class AuthService {
     } else {
       this.syncSentryUser(this.currentUserSignal());
     }
+
+    // A fresh tab pins the salle it opened on, so a switch made later in
+    // another tab does not move it.
+    if (!activeCompany.get()) activeCompany.set(this.currentUserSignal()?.company_id);
   }
 
   private syncSentryUser(user: User | null): void {
@@ -176,6 +181,7 @@ export class AuthService {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem(CLIENT_KEY);
+    activeCompany.set(null);
     this.currentUserSignal.set(null);
     this.currentClientSignal.set(null);
     this.syncSentryUser(null);
@@ -268,9 +274,12 @@ export class AuthService {
     if (user?.role === "admin" && onboarding && !onboarding.complete && !onboarding.dismissed) {
       return "/admin/onboarding";
     }
-    // The dashboard needs only the base `reports` permission — the safe
-    // universal landing for every other role.
-    return "/admin/dashboard";
+    // The dashboard needs the `reports` permission. A role without it (a
+    // custom "Comptable" with only payments, say) lands on the schedule,
+    // which every staff login may open — sending it to the dashboard made
+    // the dashboard's guard send it "home" to the dashboard again, and the
+    // sign-in silently went nowhere.
+    return this.hasPermission("reports") ? "/admin/dashboard" : "/admin/calendar";
   }
 
   // Whether this login should use the dedicated coach shell.
@@ -312,6 +321,8 @@ export class AuthService {
 
   private storeUser(user: User): void {
     localStorage.setItem(USER_KEY, JSON.stringify(user));
+    // The server answered for this tab's salle; a superadmin has none.
+    activeCompany.set(user.company_id);
     this.currentUserSignal.set(user);
   }
 
@@ -321,12 +332,16 @@ export class AuthService {
     if (res.account_type === "client" && res.client) {
       localStorage.removeItem(USER_KEY);
       localStorage.setItem(CLIENT_KEY, JSON.stringify(res.client));
+      activeCompany.set(null);
       this.currentUserSignal.set(null);
       this.currentClientSignal.set(res.client);
       Sentry.setUser({ id: res.client.id, email: res.client.email ?? undefined });
     } else if (res.user) {
       localStorage.removeItem(CLIENT_KEY);
       localStorage.setItem(USER_KEY, JSON.stringify(res.user));
+      // A new session (login, impersonation in or out) starts on the
+      // salle that account answered with.
+      activeCompany.set(res.user.company_id);
       this.currentClientSignal.set(null);
       this.currentUserSignal.set(res.user);
       this.syncSentryUser(res.user);

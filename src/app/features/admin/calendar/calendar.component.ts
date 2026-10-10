@@ -20,6 +20,7 @@ import { Coach } from "../../../core/models/coach.model";
 import { Session } from "../../../core/models/session.model";
 import { Space } from "../../../core/models/space.model";
 import { ConfigurationService } from "../../../core/configuration/configuration.service";
+import { RouterLink } from "@angular/router";
 import { SpacesService } from "../../../core/services/spaces.service";
 import { ActivitiesService } from "../../../core/services/activities.service";
 import { AttendanceService } from "../../../core/services/attendance.service";
@@ -55,7 +56,7 @@ function toDateInputValue(date: Date): string {
 @Component({
   selector: "app-calendar",
   standalone: true,
-  imports: [FormsModule, ReactiveFormsModule, DatePipe, TranslateModule, FullCalendarModule, ModalComponent, SpinnerComponent, StatusBadgeComponent, SearchableSelectComponent],
+  imports: [FormsModule, ReactiveFormsModule, DatePipe, TranslateModule, FullCalendarModule, ModalComponent, SpinnerComponent, StatusBadgeComponent, SearchableSelectComponent, RouterLink],
   templateUrl: "./calendar.component.html",
   styleUrl: "./calendar.component.scss",
 })
@@ -82,6 +83,8 @@ export class CalendarComponent implements OnInit {
   // exports the week actually on screen, not always the current one.
   private currentRangeStart = new Date();
   readonly printingSchedule = signal(false);
+  /** Printing the week is a Pro tool: locked on Starter and during the trial. */
+  readonly canPrint = computed(() => this.configuration.proFeatures());
 
   readonly canManageSessions: Signal<boolean>;
 
@@ -825,6 +828,7 @@ export class CalendarComponent implements OnInit {
 
   // === Print planning ===
   printSchedule(): void {
+    if (!this.canPrint()) return;
     this.printingSchedule.set(true);
     this.sessionsService.schedulePdf(toDateInputValue(this.currentRangeStart)).subscribe({
       next: (blob) => {

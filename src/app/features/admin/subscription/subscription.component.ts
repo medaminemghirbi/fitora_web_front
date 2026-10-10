@@ -36,7 +36,7 @@ export interface IncludedItem {
 
 /** What only Pro (and the trial) carries, and whether this account has it. */
 export interface ProFeature {
-  key: "member_app" | "multi_salle" | "updates";
+  key: "member_app" | "multi_salle" | "updates" | "roles" | "branding" | "data_exchange" | "print";
   icon: string;
   held: boolean;
 }
@@ -101,10 +101,12 @@ export class SubscriptionComponent {
   readonly daysBeforeLock = computed(() => this.sub()?.days_before_lock ?? null);
   readonly arrears = computed(() => (this.info()?.arrears_cents ?? 0) / 100);
   readonly currency = computed(() => this.info()?.currency ?? "TND");
-  /** Pro, or a free trial: members can sign in to their app. */
+  /** Paid Pro only (locked on the trial): members can sign in to their app. */
   readonly memberApp = computed(() => this.sub()?.member_app ?? false);
-  /** Pro, or a free trial: the account may open another salle. */
+  /** Paid Pro only (locked on the trial): the account may open another salle. */
   readonly multiSalle = computed(() => this.sub()?.multi_salle ?? false);
+  /** Paid Pro only (locked on the trial): custom roles, branding, CSV import / export. */
+  readonly proTools = computed(() => this.sub()?.pro_features ?? false);
 
   // ---- the free trial -----------------------------------------------------
   // A new account has paid nothing and chosen nothing. It is shown as what
@@ -131,7 +133,8 @@ export class SubscriptionComponent {
   readonly currentPlanName = computed(() => {
     if (this.trialRunning()) return "subscription.tier_trial";
     if (this.trialOver()) return "subscription.tier_trial_over";
-    return `subscription.plan_${this.sub()?.plan ?? "starter"}`;
+    const plan = this.sub()?.plan;
+    return plan ? `subscription.plan_${plan}` : "subscription.tier_trial";
   });
 
   readonly currentPlanTagline = computed(() => {
@@ -191,6 +194,10 @@ export class SubscriptionComponent {
     { key: "multi_salle", icon: "bi-buildings", held: this.multiSalle() },
     { key: "member_app", icon: "bi-phone", held: this.memberApp() },
     { key: "updates", icon: "bi-arrow-repeat", held: this.memberApp() },
+    { key: "roles", icon: "bi-shield-lock", held: this.proTools() },
+    { key: "branding", icon: "bi-palette", held: this.proTools() },
+    { key: "data_exchange", icon: "bi-arrow-down-up", held: this.proTools() },
+    { key: "print", icon: "bi-printer", held: this.proTools() },
   ]);
 
   /** What every plan carries: the modules the backend reports, and the moderators. */
@@ -214,12 +221,15 @@ export class SubscriptionComponent {
     }))
   );
 
-  /** The plan ticked in the picker. Until the admin picks, the one they are on — Pro on trial, the closest to it. */
+  /**
+   * The plan ticked in the picker. Until the admin picks, the one they are
+   * on — and on the trial, none: nothing is chosen, so nothing is ticked.
+   */
   readonly picked = signal<PlanKey | null>(null);
   readonly pickedPlan = computed(() => {
     const plans = this.plans();
-    const key = this.picked() ?? plans.find((p) => p.current)?.key ?? "pro";
-    return plans.find((p) => p.key === key) ?? plans[0] ?? null;
+    const key = this.picked() ?? plans.find((p) => p.current)?.key ?? null;
+    return key ? (plans.find((p) => p.key === key) ?? null) : null;
   });
 
   /** The picked plan on the period already billed: nothing to ask for. */
@@ -232,7 +242,7 @@ export class SubscriptionComponent {
   /** Same plan, other period: a request to change how it is billed. */
   readonly pickSwitchesPeriod = computed(() => !!this.pickedPlan()?.current && !this.pickIsCurrent());
 
-  /** Leaving Pro, or the trial, for Starter takes the member app and new salles away. */
+  /** Leaving Pro for Starter takes the member app and new salles away. */
   readonly pickLosesPro = computed(() => this.pickedPlan()?.key === "starter" && (this.memberApp() || this.multiSalle()));
 
   // ---- asking for a plan -------------------------------------------------

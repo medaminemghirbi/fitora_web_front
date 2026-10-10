@@ -29,7 +29,8 @@ export interface PaymentListResponse {
   meta: PageMeta;
   counts: Record<string, number>;
   method_counts: Record<string, number>;
-  totals: {
+  /** Only for a login holding `revenue` — absent otherwise. */
+  totals?: {
     collected_this_month: number;
     collected_total: number;
     refunded_value: number;

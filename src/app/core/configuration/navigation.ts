@@ -18,6 +18,8 @@ export interface NavLeafBlueprint {
   // that feature on — a one-room gym has no rooms menu, because it has no
   // rooms and asking it about them would be a question with one answer.
   feature?: string;
+  // A Pro tool: shown to every admin, marked "Pro" on a Starter account.
+  pro?: boolean;
 }
 
 export interface NavGroupBlueprint {
@@ -93,7 +95,7 @@ export const NAV_BLUEPRINT: NavGroupBlueprint[] = [
 // "Nouveautés" left the menu: an announcement is a notification, and the bell
 // already carries them.
 export const SECONDARY_NAV: NavLeafBlueprint[] = [
-  { path: "/admin/salles", icon: "bi-buildings", labelKey: "nav.my_salles", adminOnly: true },
+  { path: "/admin/salles", icon: "bi-buildings", labelKey: "nav.my_salles", adminOnly: true, pro: true },
   { path: "/admin/subscription", icon: "bi-stars", labelKey: "nav.fitora_subscription", adminOnly: true },
   { path: "/admin/settings", icon: "bi-gear", labelKey: "nav.settings", adminOnly: true },
 ];

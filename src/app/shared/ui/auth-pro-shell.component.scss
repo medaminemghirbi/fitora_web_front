@@ -1,20 +1,23 @@
-// The account screens' frame — "Éditorial" direction (2026-09-22).
+// The account screens' frame — "Fitora × Shoot" (2026-10-09), after the
+// landing page: a night panel with lime rings, heavy sans headlines.
 // The panel sets --apro-* for the content each page projects into it; the
 // page styles that content in features/auth/auth.component.scss.
 
 :host { display: contents; }
 
 .apro {
-  // Tone "dark": the aubergine the app sidebar uses, fixed in both themes.
-  --apro-bg: var(--sidebar-bg);
-  --apro-ink: var(--sidebar-text-strong);
-  --apro-ink-soft: var(--sidebar-text);
-  --apro-em: var(--sidebar-accent);
-  --apro-card-bg: var(--sidebar-hover-bg);
-  --apro-card-border: var(--sidebar-border);
-  --apro-mark-bg: var(--sidebar-text-active);
-  --apro-mark-ink: var(--sidebar-bg);
-  --apro-ring: color-mix(in srgb, var(--sidebar-accent) 25%, transparent);
+  // Tone "dark": the landing page's night, fixed in both themes; lime highlights.
+  --apro-bg: var(--color-night);
+  --apro-ink: #ffffff;
+  --apro-ink-soft: #c9bee3;
+  --apro-em: var(--color-lime);
+  --apro-card-bg: rgba(255, 255, 255, 0.06);
+  --apro-card-border: rgba(255, 255, 255, 0.09);
+  --apro-mark-bg: var(--color-lime);
+  --apro-mark-ink: var(--color-on-lime);
+  --apro-tile-bg: var(--color-lime);
+  --apro-tile-ink: var(--color-on-lime);
+  --apro-ring: color-mix(in srgb, var(--color-lime) 24%, transparent);
 
   min-height: 100vh;
   display: grid;
@@ -30,8 +33,10 @@
     --apro-em: var(--color-primary);
     --apro-card-bg: var(--color-surface);
     --apro-card-border: var(--color-border);
-    --apro-mark-bg: var(--color-primary);
-    --apro-mark-ink: var(--color-on-primary);
+    --apro-mark-bg: var(--color-night);
+    --apro-mark-ink: var(--color-lime);
+    --apro-tile-bg: var(--color-night);
+    --apro-tile-ink: var(--color-lime);
     --apro-ring: color-mix(in srgb, var(--color-primary) 14%, transparent);
   }
 
@@ -62,22 +67,22 @@
     content: "";
     position: absolute;
     border-radius: 50%;
-    border: 1px solid var(--apro-ring);
+    border: 1.5px solid var(--apro-ring);
     pointer-events: none;
   }
 
   &::before {
-    inset-inline-end: -140px;
-    bottom: -140px;
-    width: 480px;
-    height: 480px;
+    inset-inline-end: -180px;
+    bottom: -180px;
+    width: 560px;
+    height: 560px;
   }
 
   &::after {
-    inset-inline-end: -60px;
-    bottom: -60px;
-    width: 320px;
-    height: 320px;
+    inset-inline-end: -80px;
+    bottom: -80px;
+    width: 360px;
+    height: 360px;
   }
 
   @media (max-width: 1199.98px) {
@@ -106,10 +111,10 @@
   align-items: center;
   gap: 0.625rem;
   align-self: flex-start;
-  font-family: var(--font-editorial);
-  font-size: 1.625rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-family: var(--font-display);
+  font-size: 1.4375rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
   color: var(--apro-ink);
   text-decoration: none;
 
@@ -117,12 +122,12 @@
 }
 
 .apro-mark {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  border-radius: 10px;
+  border-radius: 11px;
   background: var(--apro-mark-bg);
   color: var(--apro-mark-ink);
 }
@@ -139,8 +144,8 @@
     width: 30px;
     height: 30px;
     border-radius: 9px;
-    background: var(--color-primary);
-    color: var(--color-on-primary);
+    background: var(--color-night);
+    color: var(--color-lime);
   }
 
   @media (max-width: 991.98px) {
@@ -207,13 +212,16 @@
 .apro-lang {
   display: flex;
   gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
 
   button {
     min-width: 40px;
     height: 36px;
     padding: 0 0.625rem;
     border: 0;
-    border-radius: 8px;
+    border-radius: var(--radius-pill);
     background: transparent;
     color: var(--color-muted);
     font: inherit;
@@ -225,8 +233,8 @@
     &:hover { color: var(--color-text); }
 
     &.is-active {
-      background: var(--color-primary-soft);
-      color: var(--color-primary);
+      background: var(--color-lime);
+      color: var(--color-on-lime);
     }
 
     &:focus-visible {

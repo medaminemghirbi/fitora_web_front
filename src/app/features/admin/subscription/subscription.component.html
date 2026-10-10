@@ -112,7 +112,7 @@
               <div class="sub-pro-grid">
                 @for (feature of proFeatures(); track feature.key) {
                   <div class="sub-pro-tile" [class.is-off]="!feature.held">
-                    <span class="sub-pro-ic"><i class="bi" [class]="feature.held ? feature.icon : 'bi-lock'" aria-hidden="true"></i></span>
+                    <span class="sub-pro-ic"><i class="bi" [class]="feature.held ? feature.icon : 'bi-lock-fill'" aria-hidden="true"></i></span>
                     <div>
                       <strong>{{ ("subscription.pro_" + feature.key + "_name") | translate }}</strong>
                       <span>{{ (feature.held ? "subscription.pro_" + feature.key + "_desc" : "subscription.not_included") | translate }}</span>
@@ -194,6 +194,8 @@
                     }
                   </button>
                 }
+              } @else {
+                <p class="sub-change-note">{{ "subscription.pick_a_plan" | translate }}</p>
               }
 
               <p class="sub-change-note">{{ "subscription.offapp_short" | translate }}</p>

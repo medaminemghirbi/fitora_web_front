@@ -20,10 +20,12 @@
           @if (downloadingTemplate()) { <app-spinner [size]="14" /> } @else { <i class="bi bi-filetype-csv"></i> }
           {{ "data_exchange.download_template" | translate }}
         </button>
-        <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="exporting()" (click)="exportData()">
-          @if (exporting()) { <app-spinner [size]="14" /> } @else { <i class="bi bi-download"></i> }
-          {{ "common.export" | translate }}
-        </button>
+        @if (isAdmin()) {
+          <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="exporting()" (click)="exportData()">
+            @if (exporting()) { <app-spinner [size]="14" /> } @else { <i class="bi bi-download"></i> }
+            {{ "common.export" | translate }}
+          </button>
+        }
       </div>
 
       @if (!previewFile()) {

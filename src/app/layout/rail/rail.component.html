@@ -46,6 +46,9 @@
       <a [routerLink]="item.path" routerLinkActive="is-active" class="rail-item">
         <i class="bi" [class]="item.icon"></i>
         {{ item.labelKey | translate }}
+        @if (item.pro && !proFeatures()) {
+          <span class="rail-pro"><i class="bi bi-lock-fill" aria-hidden="true"></i> Pro</span>
+        }
       </a>
     }
   </nav>

@@ -69,7 +69,8 @@ export class SuperadminCompanyDetailComponent implements OnInit {
   // page. It is the ACCOUNT's: every salle the admin runs shares it.
   readonly planOptions = PLAN_KEYS;
 
-  readonly plan = computed<PlanKey>(() => this.company()?.plan ?? "starter");
+  /** null while the account is on its trial and no plan is chosen yet. */
+  readonly plan = computed<PlanKey | null>(() => this.company()?.plan ?? null);
 
   /** Every salle one sale opens — this one, and the admin's others. */
   readonly accountCompanies = computed(() => this.company()?.account_companies ?? []);
